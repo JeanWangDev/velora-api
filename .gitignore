@@ -1,0 +1,9 @@
+node_modules
+dist
+.pnp.*
+
+.env*.local
+.env.development
+.env.production
+
+.DS_Store
