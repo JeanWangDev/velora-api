@@ -16,12 +16,14 @@ export {
   registerBodySchema,
   loginBodySchema,
   sendEmailCodeBodySchema,
+  verifyEmailCodeBodySchema,
   forgotPasswordBodySchema,
   resetPasswordBodySchema,
   updateProfileBodySchema,
   type RegisterBody,
   type LoginBody,
   type SendEmailCodeBody,
+  type VerifyEmailCodeBody,
   type ForgotPasswordBody,
   type ResetPasswordBody,
   type UpdateProfileBody,
@@ -41,3 +43,14 @@ export {
   billingOrderNoParamSchema,
   type CreateBillingOrderBody,
 } from "./billing";
+
+export {
+  submitKycBodySchema,
+  reviewKycBodySchema,
+  adminKycListQuerySchema,
+  uploadKycBodySchema,
+  type SubmitKycBody,
+  type ReviewKycBody,
+  type AdminKycListQuery,
+  type UploadKycBody,
+} from "./kyc";

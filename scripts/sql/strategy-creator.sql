@@ -1,5 +1,5 @@
 -- Mode B: user-created strategies + copy-follow (apply manually in TiDB)
-USE `trading-alpha`;
+USE `velora`;
 
 ALTER TABLE t_strategy
   ADD COLUMN f_user_id BIGINT NOT NULL DEFAULT 0 COMMENT '0=platform official' AFTER f_id;

@@ -1,5 +1,5 @@
 -- Mode B extensions: paper stats, creator payout, OKX copy trading
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_strategy_paper_state (
   f_strategy_key VARCHAR(32) NOT NULL,

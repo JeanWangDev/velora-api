@@ -1,5 +1,5 @@
 -- 图表模版使用统计（应用 / 复制），用于周榜、月榜
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_chart_template_usage (
   f_id BIGINT NOT NULL AUTO_INCREMENT,

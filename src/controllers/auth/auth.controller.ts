@@ -11,6 +11,7 @@ import {
   sendEmailCodeBodySchema,
   updateProfileBodySchema,
   validateBody,
+  verifyEmailCodeBodySchema,
 } from "@/validators";
 
 export class AuthController {
@@ -22,6 +23,12 @@ export class AuthController {
   static async sendEmailCode(ctx: Context) {
     const body = validateBody(sendEmailCodeBodySchema, ctx.request.body);
     const result = await AuthService.sendEmailCode(body);
+    ctx.sendSuccess(result);
+  }
+
+  static async verifyEmailCode(ctx: Context) {
+    const body = validateBody(verifyEmailCodeBodySchema, ctx.request.body);
+    const result = await AuthService.verifyEmailCode(body);
     ctx.sendSuccess(result);
   }
 

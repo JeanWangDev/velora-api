@@ -1,5 +1,5 @@
 -- Event Intelligence: t_event（在 init.sql 建库后执行）
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_event (
   f_id BIGINT NOT NULL AUTO_INCREMENT,

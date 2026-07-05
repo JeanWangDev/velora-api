@@ -1,0 +1,1020 @@
+openapi: 3.0.3
+info:
+  title: Velora API
+  version: "1.0.0"
+  description: >
+    Velora 交易平台后端接口文档。统一响应包装：
+    `{ code, success, message, timestamp, data }`。
+    受保护接口需在请求头携带 `Authorization: Bearer <accessToken>`。
+    可直接导入 Apifox（新建项目 → 导入数据 → OpenAPI/Swagger）。
+servers:
+  - url: http://localhost:4000
+    description: 本地开发
+  - url: https://api-test.velora.com
+    description: 测试环境
+tags:
+  - name: Health
+    description: 健康检查
+  - name: Auth
+    description: 认证与账户
+  - name: KYC
+    description: 身份认证（KYC）
+  - name: Market
+    description: 行情数据
+  - name: Dashboard
+    description: 概览
+  - name: Events
+    description: 事件 / 资讯
+  - name: ChartTemplates
+    description: 图表模版
+  - name: Billing
+    description: 会员与支付
+  - name: Strategy
+    description: 策略
+  - name: Exchanges
+    description: 交易所连接
+  - name: Copy
+    description: 跟单
+  - name: Creator
+    description: 创作者收益
+  - name: Admin
+    description: 管理后台（需管理员）
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiEnvelope:
+      type: object
+      properties:
+        code: { type: integer, example: 200 }
+        success: { type: boolean, example: true }
+        message: { type: string, example: ok }
+        timestamp: { type: integer, format: int64, example: 1783229062797 }
+        data: { nullable: true }
+    AuthUser:
+      type: object
+      properties:
+        id: { type: string, example: "1" }
+        email: { type: string, example: user@velora.dev }
+        nickname: { type: string, example: user }
+        roleKey: { type: string, example: normal_user }
+        roleName: { type: string, example: 普通用户 }
+        roleLevel: { type: integer, example: 1 }
+    AuthSession:
+      type: object
+      properties:
+        accessToken: { type: string }
+        expiresAt: { type: integer, format: int64 }
+        user: { $ref: '#/components/schemas/AuthUser' }
+    KycVerification:
+      type: object
+      properties:
+        status: { type: string, enum: [pending, verified, rejected] }
+        idType: { type: string, enum: [id_card, passport] }
+        fullName: { type: string, example: 张三 }
+        idNumber: { type: string, description: 已脱敏, example: "1101**********1234" }
+        countryIso: { type: string, example: CN }
+        address: { type: string, nullable: true, example: 北京市朝阳区 }
+        validUntil: { type: string, nullable: true, example: "2035-01-01" }
+        docFrontName: { type: string, nullable: true, example: front.jpg }
+        docBackName: { type: string, nullable: true, example: back.jpg }
+        rejectReason: { type: string, nullable: true }
+        submittedAt: { type: integer, format: int64, nullable: true }
+        reviewedAt: { type: integer, format: int64, nullable: true }
+  responses:
+    Envelope:
+      description: 统一响应
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiEnvelope' }
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: 健康检查
+      security: []
+      responses:
+        "200":
+          description: 服务状态
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          service: { type: string, example: velora-api-development }
+                          uptime: { type: number, example: 14.5 }
+                          db: { type: string, example: up }
+
+  /api/v1/auth/send-code:
+    post:
+      tags: [Auth]
+      summary: 发送邮箱验证码
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, purpose]
+              properties:
+                email: { type: string, format: email, example: user@velora.dev }
+                purpose: { type: string, enum: [register, reset_password] }
+      responses:
+        "200":
+          description: 已发送（开发环境返回 devCode）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          message: { type: string }
+                          devCode: { type: string, example: "982100" }
+  /api/v1/auth/verify-code:
+    post:
+      tags: [Auth]
+      summary: 校验邮箱验证码是否正确（不消费，仅用于多步表单提前反馈）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, purpose, code]
+              properties:
+                email: { type: string, format: email, example: user@velora.dev }
+                purpose: { type: string, enum: [register, reset_password] }
+                code: { type: string, example: "982100" }
+      responses:
+        "200":
+          description: 验证码正确（未标记为已使用，真正消费仍在 register/reset-password 时进行）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          valid: { type: boolean, example: true }
+        "400":
+          description: 验证码错误或已过期
+  /api/v1/auth/register:
+    post:
+      tags: [Auth]
+      summary: 注册
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, password, confirmPassword]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string, example: "982100" }
+                password: { type: string, example: Velora@2026 }
+                confirmPassword: { type: string, example: Velora@2026 }
+      responses:
+        "200":
+          description: 注册成功并返回会话
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/AuthSession' } }
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: 登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/AuthSession' } }
+  /api/v1/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: 忘记密码（发送重置码）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties: { email: { type: string, format: email } }
+      responses:
+        "200": { $ref: '#/components/responses/Envelope' }
+  /api/v1/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: 重置密码
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, code, password, confirmPassword]
+              properties:
+                email: { type: string, format: email }
+                code: { type: string }
+                password: { type: string }
+                confirmPassword: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/Envelope' }
+  /api/v1/auth/roles:
+    get:
+      tags: [Auth]
+      summary: 角色列表
+      security: []
+      responses:
+        "200": { $ref: '#/components/responses/Envelope' }
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: 当前登录用户
+      responses:
+        "200":
+          description: 当前用户
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/AuthUser' } }
+  /api/v1/auth/update-profile:
+    post:
+      tags: [Auth]
+      summary: 更新昵称
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nickname]
+              properties: { nickname: { type: string, maxLength: 64 } }
+      responses:
+        "200": { $ref: '#/components/responses/Envelope' }
+
+  /api/v1/kyc/me:
+    get:
+      tags: [KYC]
+      summary: 查询当前用户 KYC 状态
+      responses:
+        "200":
+          description: KYC 记录（无则为 null）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          kyc:
+                            nullable: true
+                            allOf: [ { $ref: '#/components/schemas/KycVerification' } ]
+  /api/v1/kyc/upload:
+    post:
+      tags: [KYC]
+      summary: 上传证件图片
+      description: 传入 base64 DataURL，返回可访问 URL。支持 JPG/PNG/WEBP，≤5MB。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [side, image]
+              properties:
+                side: { type: string, enum: [front, back] }
+                image: { type: string, description: "data:image/jpeg;base64,..." }
+      responses:
+        "200":
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url: { type: string, example: /uploads/kyc/1-front-1730000000000.jpg }
+  /api/v1/kyc/submit:
+    post:
+      tags: [KYC]
+      summary: 提交 / 重新提交 KYC
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idType, fullName, idNumber]
+              properties:
+                idType: { type: string, enum: [id_card, passport] }
+                fullName: { type: string, maxLength: 128, example: 张三 }
+                idNumber: { type: string, maxLength: 64, example: "110101199001011234" }
+                countryIso: { type: string, default: CN }
+                address: { type: string, maxLength: 255 }
+                validUntil: { type: string, example: "2035-01-01" }
+                docFrontName: { type: string }
+                docBackName: { type: string }
+      responses:
+        "200":
+          description: 提交成功（状态置为 pending）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties: { kyc: { $ref: '#/components/schemas/KycVerification' } }
+  /api/v1/kyc/admin/list:
+    get:
+      tags: [KYC]
+      summary: KYC 列表（管理员）
+      description: 需要管理员角色。可按状态过滤。
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [pending, verified, rejected] } }
+      responses:
+        "200":
+          description: KYC 列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          data:
+                            type: array
+                            items:
+                              allOf:
+                                - $ref: '#/components/schemas/KycVerification'
+                                - type: object
+                                  properties:
+                                    userId: { type: integer }
+                                    email: { type: string, nullable: true }
+                          total: { type: integer }
+                          page: { type: integer }
+                          pageSize: { type: integer }
+  /api/v1/kyc/review:
+    post:
+      tags: [KYC]
+      summary: 审核 KYC（管理员）
+      description: 需要管理员角色。approve 通过 / reject 拒绝。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, action]
+              properties:
+                userId: { type: integer, example: 1 }
+                action: { type: string, enum: [approve, reject] }
+                rejectReason: { type: string, maxLength: 255 }
+      responses:
+        "200":
+          description: 审核结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties: { kyc: { $ref: '#/components/schemas/KycVerification' } }
+        "403":
+          description: 需要管理员权限
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiEnvelope' }
+
+  /api/v1/market/exchanges:
+    get:
+      tags: [Market]
+      summary: 支持的交易所列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/time:
+    get:
+      tags: [Market]
+      summary: 服务器时间
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/klines:
+    get:
+      tags: [Market]
+      summary: K 线数据
+      security: []
+      parameters:
+        - { name: symbol, in: query, required: true, schema: { type: string }, example: BTCUSDT }
+        - { name: interval, in: query, required: true, schema: { type: string }, example: 1h }
+        - { name: limit, in: query, schema: { type: integer, default: 300 } }
+        - { name: exchange, in: query, schema: { type: string, default: binance } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/price-levels:
+    get:
+      tags: [Market]
+      summary: 价格关键位
+      security: []
+      parameters:
+        - { name: symbol, in: query, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/brief:
+    get:
+      tags: [Market]
+      summary: 行情简报
+      security: []
+      parameters:
+        - { name: symbol, in: query, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/symbols:
+    get:
+      tags: [Market]
+      summary: 搜索交易对
+      security: []
+      parameters:
+        - { name: query, in: query, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/trading-pairs:
+    get:
+      tags: [Market]
+      summary: 交易对列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/symbol-info:
+    get:
+      tags: [Market]
+      summary: 交易对信息
+      security: []
+      parameters:
+        - { name: symbol, in: query, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/ticker:
+    get:
+      tags: [Market]
+      summary: 24h Ticker
+      security: []
+      parameters:
+        - { name: symbol, in: query, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/dashboard/overview:
+    get:
+      tags: [Dashboard]
+      summary: 概览数据
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/events/list:
+    get:
+      tags: [Events]
+      summary: 事件列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/events/chart:
+    get:
+      tags: [Events]
+      summary: 事件图表数据
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/events/recent:
+    get:
+      tags: [Events]
+      summary: 最近事件
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/events/{id}:
+    get:
+      tags: [Events]
+      summary: 事件详情
+      security: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/chart-templates/public:
+    get:
+      tags: [ChartTemplates]
+      summary: 公开模版列表
+      security: []
+      parameters:
+        - { name: symbol, in: query, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/rankings:
+    get:
+      tags: [ChartTemplates]
+      summary: 模版排行
+      security: []
+      parameters:
+        - { name: period, in: query, schema: { type: string, enum: [week, month], default: week } }
+        - { name: limit, in: query, schema: { type: integer, default: 5 } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/track:
+    post:
+      tags: [ChartTemplates]
+      summary: 上报模版使用
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, event]
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [apply, copy] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/starter:
+    get:
+      tags: [ChartTemplates]
+      summary: 新手起始模版
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/detail:
+    get:
+      tags: [ChartTemplates]
+      summary: 模版详情
+      security: []
+      parameters:
+        - { name: id, in: query, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/mine:
+    get:
+      tags: [ChartTemplates]
+      summary: 我的模版
+      parameters:
+        - { name: symbol, in: query, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/default:
+    get:
+      tags: [ChartTemplates]
+      summary: 默认模版
+      parameters:
+        - { name: symbol, in: query, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates:
+    post:
+      tags: [ChartTemplates]
+      summary: 创建模版
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, indicatorIds]
+              properties:
+                name: { type: string, maxLength: 128 }
+                symbolId: { type: integer, nullable: true }
+                symbol: { type: string }
+                indicatorIds: { type: array, items: { type: string } }
+                visibility: { type: string, enum: [private, public], default: private }
+                isDefault: { type: boolean, default: false }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/update:
+    post:
+      tags: [ChartTemplates]
+      summary: 更新模版
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: string }
+                name: { type: string }
+                symbolId: { type: integer, nullable: true }
+                symbol: { type: string }
+                indicatorIds: { type: array, items: { type: string } }
+                visibility: { type: string, enum: [private, public] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/set-default:
+    post:
+      tags: [ChartTemplates]
+      summary: 设为默认模版
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties: { id: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/chart-templates/remove:
+    post:
+      tags: [ChartTemplates]
+      summary: 删除模版
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties: { id: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/billing/plans:
+    get:
+      tags: [Billing]
+      summary: 会员套餐列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/billing/subscription:
+    get:
+      tags: [Billing]
+      summary: 当前订阅
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/billing/orders:
+    get:
+      tags: [Billing]
+      summary: 我的订单列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Billing]
+      summary: 创建订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planKey]
+              properties: { planKey: { type: string, example: pro_monthly } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/billing/orders/{orderNo}:
+    get:
+      tags: [Billing]
+      summary: 订单详情
+      parameters:
+        - { name: orderNo, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/billing/orders/{orderNo}/cancel:
+    post:
+      tags: [Billing]
+      summary: 取消订单
+      parameters:
+        - { name: orderNo, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/strategies:
+    get:
+      tags: [Strategy]
+      summary: 策略列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Strategy]
+      summary: 创建策略
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [strategyKey, name, description, symbol, interval]
+              properties:
+                strategyKey: { type: string, example: my_grid_01 }
+                name: { type: string, maxLength: 64 }
+                summary: { type: string, maxLength: 255 }
+                description: { type: string }
+                symbol: { type: string, example: BTCUSDT }
+                interval: { type: string, example: 1h }
+                templateId: { type: string, nullable: true }
+                tags: { type: array, items: { type: string } }
+                followFeeUsdt: { type: number, default: 0 }
+                durationDays: { type: integer, default: 30 }
+                visibility: { type: string, enum: [draft, public], default: draft }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/strategies/update:
+    post:
+      tags: [Strategy]
+      summary: 更新策略
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [strategyKey]
+              properties:
+                strategyKey: { type: string }
+                name: { type: string }
+                summary: { type: string }
+                description: { type: string }
+                symbol: { type: string }
+                interval: { type: string }
+                templateId: { type: string, nullable: true }
+                tags: { type: array, items: { type: string } }
+                followFeeUsdt: { type: number }
+                durationDays: { type: integer }
+                visibility: { type: string, enum: [draft, public] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/strategies/mine:
+    get:
+      tags: [Strategy]
+      summary: 我的策略
+      parameters:
+        - { name: scope, in: query, schema: { type: string, enum: [published, following], default: following } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/strategies/{strategyKey}:
+    get:
+      tags: [Strategy]
+      summary: 策略详情
+      security: []
+      parameters:
+        - { name: strategyKey, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/strategies/{strategyKey}/stats:
+    get:
+      tags: [Strategy]
+      summary: 策略统计
+      security: []
+      parameters:
+        - { name: strategyKey, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/strategies/{strategyKey}/signal:
+    get:
+      tags: [Strategy]
+      summary: 策略信号
+      parameters:
+        - { name: strategyKey, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/exchanges:
+    get:
+      tags: [Exchanges]
+      summary: 我的交易所连接
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/exchanges/okx/connect:
+    post:
+      tags: [Exchanges]
+      summary: 连接 OKX
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey, secretKey, passphrase]
+              properties:
+                apiKey: { type: string }
+                secretKey: { type: string }
+                passphrase: { type: string }
+                label: { type: string, maxLength: 64 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/exchanges/okx/disconnect:
+    post:
+      tags: [Exchanges]
+      summary: 断开 OKX
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/copy/subscriptions:
+    get:
+      tags: [Copy]
+      summary: 我的跟单订阅
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/copy/subscribe:
+    post:
+      tags: [Copy]
+      summary: 订阅跟单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [strategyKey, exchangeConnectionId]
+              properties:
+                strategyKey: { type: string }
+                exchangeConnectionId: { type: integer }
+                orderSizeUsdt: { type: number }
+                tradeMode: { type: string, enum: [live, paper] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/copy/unsubscribe:
+    post:
+      tags: [Copy]
+      summary: 取消跟单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [strategyKey]
+              properties: { strategyKey: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/creator/balance:
+    get:
+      tags: [Creator]
+      summary: 创作者余额
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/creator/withdraw:
+    post:
+      tags: [Creator]
+      summary: 创作者提现
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amountUsdt: { type: number }
+                address: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+  /api/v1/admin/trading-pairs:
+    get:
+      tags: [Admin]
+      summary: 交易对列表（管理）
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Admin]
+      summary: 新增交易对
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [baseAsset, symbol]
+              properties:
+                baseAsset: { type: string, maxLength: 16 }
+                symbol: { type: string, maxLength: 32 }
+                exchange: { type: string, default: binance }
+                displayName: { type: string }
+                sortOrder: { type: integer, default: 0 }
+                isDefault: { type: boolean, default: false }
+                accessTier: { type: integer, enum: [0, 1], default: 0 }
+                status: { type: integer, enum: [0, 1], default: 1 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/trading-pairs/update:
+    post:
+      tags: [Admin]
+      summary: 更新交易对
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+                baseAsset: { type: string }
+                symbol: { type: string }
+                exchange: { type: string }
+                displayName: { type: string }
+                sortOrder: { type: integer }
+                isDefault: { type: boolean }
+                accessTier: { type: integer, enum: [0, 1] }
+                status: { type: integer, enum: [0, 1] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/trading-pairs/remove:
+    post:
+      tags: [Admin]
+      summary: 删除交易对
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties: { id: { type: integer } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/roles:
+    get:
+      tags: [Admin]
+      summary: 角色列表（管理）
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: 用户列表（管理）
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+        - { name: query, in: query, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Admin]
+      summary: 新增用户
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                nickname: { type: string }
+                roleKey: { type: string, default: normal_user }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/users/update-role:
+    post:
+      tags: [Admin]
+      summary: 修改用户角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, roleKey]
+              properties:
+                id: { type: integer }
+                roleKey: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/users/update-status:
+    post:
+      tags: [Admin]
+      summary: 修改用户状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id, status]
+              properties:
+                id: { type: integer }
+                status: { type: integer, enum: [0, 1] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/billing/orders:
+    get:
+      tags: [Admin]
+      summary: 全部支付订单（管理）
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }

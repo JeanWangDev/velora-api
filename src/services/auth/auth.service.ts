@@ -25,6 +25,7 @@ import type {
   ResetPasswordBody,
   SendEmailCodeBody,
   UpdateProfileBody,
+  VerifyEmailCodeBody,
 } from "@/validators";
 
 function assertDbReady() {
@@ -90,6 +91,13 @@ export class AuthService {
   static async sendEmailCode(body: SendEmailCodeBody) {
     assertDbReady();
     return EmailVerificationService.sendCode(body.email, body.purpose);
+  }
+
+  /** 只校验、不消费，供前端在验证码输入这一步立刻给出真实反馈 */
+  static async verifyEmailCode(body: VerifyEmailCodeBody) {
+    assertDbReady();
+    await EmailVerificationService.verifyOnly(body.email, body.purpose, body.code);
+    return { valid: true };
   }
 
   static async register(body: RegisterBody) {

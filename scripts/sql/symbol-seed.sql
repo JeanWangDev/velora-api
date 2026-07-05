@@ -1,5 +1,5 @@
 -- 交易对种子数据（需先执行 symbol-table.sql 与 trading-symbol-access-tier.sql）
-USE `trading-alpha`;
+USE `velora`;
 
 INSERT INTO t_trading_symbol (f_base_asset, f_symbol, f_exchange, f_display_name, f_sort_order, f_is_default, f_access_tier) VALUES
   ('BTC', 'BTCUSDT', 'binance', 'Bitcoin', 10, 1, 0),

@@ -1,5 +1,5 @@
 -- 交易对访问级别：0=免费 1=VIP
-USE `trading-alpha`;
+USE `velora`;
 
 ALTER TABLE t_trading_symbol
   ADD COLUMN IF NOT EXISTS f_access_tier TINYINT NOT NULL DEFAULT 0 COMMENT '0=免费 1=VIP' AFTER f_is_default;

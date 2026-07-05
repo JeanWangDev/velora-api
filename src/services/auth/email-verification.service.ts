@@ -13,7 +13,8 @@ export type EmailVerificationPurpose =
   | typeof EMAIL_PURPOSE_REGISTER
   | typeof EMAIL_PURPOSE_RESET_PASSWORD;
 
-const CODE_TTL_MS = 60_000;
+/** 验证码有效期：给用户留出完成多步注册表单的时间，而不是 1 分钟就过期 */
+const CODE_TTL_MS = 10 * 60_000;
 const SEND_COOLDOWN_MS = 60_000;
 
 function hashCode(code: string): string {
@@ -70,7 +71,7 @@ export class EmailVerificationService {
     await MailService.sendVerificationCode(email, code);
 
     const result: { message: string; devCode?: string } = {
-      message: "验证码已发送，请查收邮件（1 分钟内有效）",
+      message: "验证码已发送，请查收邮件（10 分钟内有效）",
     };
 
     if (config.isDev && !config.mail.enabled) {
@@ -78,6 +79,40 @@ export class EmailVerificationService {
     }
 
     return result;
+  }
+
+  /**
+   * 只校验、不消费：用于前端在"输入验证码"这一步就给出真实反馈，
+   * 而不是让用户带着一个从没被校验过的随便乱填的 6 位数字，
+   * 一路走到设置密码那一步才在最终提交时才发现验证码是错的。
+   * 真正标记 used=1（消费掉）仍然只在 verifyAndConsume（注册/重置密码提交时）里做，
+   * 防止验证码被重放使用。
+   */
+  static async verifyOnly(
+    emailInput: string,
+    purpose: EmailVerificationPurpose,
+    code: string,
+  ): Promise<void> {
+    const email = normalizeEmail(emailInput);
+    const normalizedCode = code.trim();
+
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      throw new BadRequestError("验证码格式不正确");
+    }
+
+    const row = await EmailVerification.findOne({
+      where: {
+        email,
+        purpose,
+        used: 0,
+        expireTime: { [Op.gt]: new Date() },
+      },
+      order: [["createTime", "DESC"]],
+    });
+
+    if (!row || row.codeHash !== hashCode(normalizedCode)) {
+      throw new BadRequestError("验证码错误或已过期");
+    }
   }
 
   static async verifyAndConsume(

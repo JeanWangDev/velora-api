@@ -7,6 +7,7 @@ import { decodeAccessTokenUnsafe, verifyAccessToken } from "@/utils/jwt";
 const PUBLIC_AUTH_ROUTES = new Set([
   "GET /api/v1/auth/roles",
   "POST /api/v1/auth/send-code",
+  "POST /api/v1/auth/verify-code",
   "POST /api/v1/auth/register",
   "POST /api/v1/auth/login",
   "POST /api/v1/auth/forgot-password",

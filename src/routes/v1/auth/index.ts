@@ -5,6 +5,7 @@ const router = new Router({ prefix: "/auth" });
 
 router.get("/roles", AuthController.roles);
 router.post("/send-code", AuthController.sendEmailCode);
+router.post("/verify-code", AuthController.verifyEmailCode);
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
 router.post("/forgot-password", AuthController.forgotPassword);

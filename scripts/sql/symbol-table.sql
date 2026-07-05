@@ -1,5 +1,5 @@
 -- 交易对表结构（新建库）
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_trading_symbol (
   f_id INT NOT NULL AUTO_INCREMENT,

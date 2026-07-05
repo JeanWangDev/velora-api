@@ -1,5 +1,5 @@
 -- 邮箱验证码（注册 / 重置密码）
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_email_verification (
   f_id BIGINT NOT NULL AUTO_INCREMENT,

@@ -10,6 +10,7 @@ import strategyRoutes from "./strategies";
 import creatorRoutes from "./creator";
 import exchangeRoutes from "./exchanges";
 import copyRoutes from "./copy";
+import kycRoutes from "./kyc";
 
 const router = new Router({ prefix: "/v1" });
 
@@ -24,5 +25,6 @@ router.use(strategyRoutes.routes(), strategyRoutes.allowedMethods());
 router.use(creatorRoutes.routes(), creatorRoutes.allowedMethods());
 router.use(exchangeRoutes.routes(), exchangeRoutes.allowedMethods());
 router.use(copyRoutes.routes(), copyRoutes.allowedMethods());
+router.use(kycRoutes.routes(), kycRoutes.allowedMethods());
 
 export default router;

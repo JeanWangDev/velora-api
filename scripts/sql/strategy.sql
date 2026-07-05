@@ -1,5 +1,5 @@
 -- Strategy marketplace (reference SQL — apply manually in TiDB)
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_strategy (
   f_id INT NOT NULL AUTO_INCREMENT,

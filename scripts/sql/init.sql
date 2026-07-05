@@ -1,11 +1,11 @@
 -- trading-api auth schema (demo-server style: t_ tables, f_ columns)
--- Database: trading-alpha
+-- Database: velora
 
-CREATE DATABASE IF NOT EXISTS `trading-alpha`
+CREATE DATABASE IF NOT EXISTS `velora`
   DEFAULT CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
-USE `trading-alpha`;
+USE `velora`;
 
 -- Role dictionary (5 roles)
 CREATE TABLE IF NOT EXISTS t_role (

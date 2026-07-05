@@ -1,5 +1,5 @@
 -- 官方预置公开模版（f_user_id=0，所有人免登录可看可用）
-USE `trading-alpha`;
+USE `velora`;
 
 INSERT INTO t_chart_template (
   f_template_id,

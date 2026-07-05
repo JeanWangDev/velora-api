@@ -29,6 +29,11 @@ const sqlFiles = [
   "scripts/sql/chart-template-seed-official.sql",
   "scripts/sql/chart-template-usage.sql",
   "scripts/sql/email-verification.sql",
+  "scripts/sql/billing.sql",
+  "scripts/sql/strategy.sql",
+  "scripts/sql/strategy-creator.sql",
+  "scripts/sql/strategy-mode-b-ext.sql",
+  "scripts/sql/kyc.sql",
 ];
 
 async function main() {

@@ -1,5 +1,5 @@
 -- 为已有 t_chart_template 表增加交易对字典 ID 关联
-USE `trading-alpha`;
+USE `velora`;
 
 ALTER TABLE t_chart_template
   ADD COLUMN IF NOT EXISTS f_symbol_id INT NULL COMMENT 't_trading_symbol.f_id' AFTER f_symbol;

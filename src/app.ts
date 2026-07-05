@@ -13,6 +13,7 @@ import {
   responseTimeMiddleware,
 } from "@/middlewares/logger.middleware";
 import { marketRateLimitMiddleware } from "@/middlewares/rate-limit.middleware";
+import { uploadsMiddleware } from "@/middlewares/uploads.middleware";
 import mainRouter from "@/routes";
 import healthRouter from "@/routes/health";
 
@@ -39,8 +40,9 @@ export function createApp() {
     }),
   );
 
-  app.use(bodyParser());
+  app.use(bodyParser({ jsonLimit: "8mb", textLimit: "8mb" }));
   app.use(responseTimeMiddleware);
+  app.use(uploadsMiddleware);
   app.use(marketRateLimitMiddleware);
   app.use(authMiddleware);
 

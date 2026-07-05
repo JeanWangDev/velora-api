@@ -27,6 +27,15 @@ export const sendEmailCodeBodySchema = z.object({
   }),
 });
 
+/** 仅校验验证码是否正确（不消费），供前端在多步表单里提前给出真实反馈 */
+export const verifyEmailCodeBodySchema = z.object({
+  email: emailSchema,
+  purpose: z.enum(["register", "reset_password"], {
+    message: "无效的验证码用途",
+  }),
+  code: verificationCodeSchema,
+});
+
 /** Public registration — role is assigned server-side (default: normal_user). */
 export const registerBodySchema = z
   .object({
@@ -70,6 +79,7 @@ export const updateProfileBodySchema = z.object({
 });
 
 export type SendEmailCodeBody = z.infer<typeof sendEmailCodeBodySchema>;
+export type VerifyEmailCodeBody = z.infer<typeof verifyEmailCodeBodySchema>;
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;

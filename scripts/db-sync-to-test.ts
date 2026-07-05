@@ -9,7 +9,7 @@ const SRC = {
   port: Number(process.env.SRC_DB_PORT ?? 4000),
   user: process.env.SRC_DB_USER ?? "",
   password: process.env.SRC_DB_PASSWORD ?? "",
-  database: process.env.SRC_DB_NAME ?? "trading-alpha",
+  database: process.env.SRC_DB_NAME ?? "velora",
   ssl: { minVersion: "TLSv1.2" as const, rejectUnauthorized: true },
 };
 
@@ -18,7 +18,7 @@ const TGT = {
   port: Number(process.env.TGT_DB_PORT ?? 4000),
   user: process.env.TGT_DB_USER ?? "",
   password: process.env.TGT_DB_PASSWORD ?? "",
-  database: process.env.TGT_DB_NAME ?? "trading-alpha-test",
+  database: process.env.TGT_DB_NAME ?? "velora-test",
   ssl: { minVersion: "TLSv1.2" as const, rejectUnauthorized: true },
   multipleStatements: true,
 };

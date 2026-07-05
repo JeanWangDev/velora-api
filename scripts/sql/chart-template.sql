@@ -1,5 +1,5 @@
 -- 用户图表指标模版（MVP Lite：指标 + 可选参考币对，不含周期/画线）
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_chart_template (
   f_id BIGINT NOT NULL AUTO_INCREMENT,

@@ -1,5 +1,5 @@
 -- Membership & crypto billing (TRC20-USDT MVP)
-USE `trading-alpha`;
+USE `velora`;
 
 CREATE TABLE IF NOT EXISTS t_membership_plan (
   f_id INT NOT NULL AUTO_INCREMENT,

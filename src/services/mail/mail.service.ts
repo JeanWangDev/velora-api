@@ -3,7 +3,7 @@ import { config } from "@/config";
 import { BadRequestError } from "@/errors/app-error";
 
 export function buildVerificationEmailText(code: string): string {
-  return `Polaris邮箱验证码： ${code}，有效时间1分钟！`;
+  return `Velora 邮箱验证码：${code}，有效时间 10 分钟，请勿泄露给他人。`;
 }
 
 export class MailService {
@@ -21,7 +21,7 @@ export class MailService {
 
   static async sendVerificationCode(to: string, code: string): Promise<void> {
     const text = buildVerificationEmailText(code);
-    const subject = "Polaris 邮箱验证码";
+    const subject = "Velora 邮箱验证码";
 
     if (!config.mail.enabled) {
       console.info(`[mail:dev] to=${to} ${text}`);

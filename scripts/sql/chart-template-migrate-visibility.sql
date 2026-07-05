@@ -1,5 +1,5 @@
 -- 模版可见性与默认标记
-USE `trading-alpha`;
+USE `velora`;
 
 ALTER TABLE t_chart_template
   ADD COLUMN IF NOT EXISTS f_visibility TINYINT NOT NULL DEFAULT 0 COMMENT '0=私有 1=公开' AFTER f_indicator_ids;
