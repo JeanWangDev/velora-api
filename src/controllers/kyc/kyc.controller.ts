@@ -1,11 +1,15 @@
 import type { Context } from "koa";
+import { config } from "@/config";
 import { toAdminKycVerificationDto, toKycVerificationDto } from "@/dto/kyc";
-import { BadRequestError } from "@/errors/app-error";
+import { BadRequestError, UnauthorizedError } from "@/errors/app-error";
 import { requireAuthUser } from "@/middlewares/auth.middleware";
 import { requireAdmin } from "@/middlewares/require-admin.middleware";
 import { KycService, KycUploadService } from "@/services/kyc";
+import { verifyDiditWebhookSignature } from "@/services/didit";
 import {
   adminKycListQuerySchema,
+  diditCreateSessionBodySchema,
+  diditSyncBodySchema,
   reviewKycBodySchema,
   submitKycBodySchema,
   uploadKycBodySchema,
@@ -65,5 +69,74 @@ export class KycController {
     const body = validateBody(reviewKycBodySchema, ctx.request.body);
     const row = await KycService.review(body.userId, body.action, body.rejectReason);
     ctx.sendSuccess({ kyc: toKycVerificationDto(row, { maskId: false }) });
+  }
+
+  /** KYC 运行时配置（Didit / 开发自动通过） */
+  static async config(ctx: Context) {
+    ctx.sendSuccess({
+      diditEnabled: KycService.isDiditEnabled(),
+      devAutoApprove: KycService.isDevAutoApprove(),
+    });
+  }
+
+  /** @deprecated 使用 config */
+  static async diditConfig(ctx: Context) {
+    await KycController.config(ctx);
+  }
+
+  /** 创建 Didit 验证会话，返回跳转 URL */
+  static async diditCreateSession(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const body = validateBody(diditCreateSessionBodySchema, ctx.request.body ?? {});
+    const result = await KycService.createDiditSession(userId, {
+      callbackUrl: body.callbackUrl,
+      language: body.language,
+    });
+    ctx.sendSuccess(result);
+  }
+
+  /** 从 Didit 同步验证结果（用户回调或手动刷新） */
+  static async diditSync(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const body = validateBody(diditSyncBodySchema, ctx.request.body);
+    const row = await KycService.syncFromDiditSession(userId, body.sessionId);
+    ctx.sendSuccess({ kyc: toKycVerificationDto(row) });
+  }
+
+  /** Didit Webhook（公开，HMAC 签名校验） */
+  static async diditWebhook(ctx: Context) {
+    const secret = config.didit.webhookSecret;
+    if (!secret.trim()) {
+      throw new BadRequestError("Didit Webhook Secret 未配置");
+    }
+
+    const body = ctx.request.body as Record<string, unknown>;
+    if (!body || typeof body !== "object") {
+      throw new BadRequestError("无效的 Webhook 请求体");
+    }
+
+    const verified = verifyDiditWebhookSignature(body, {
+      signatureV2: ctx.get("X-Signature-V2") || undefined,
+      signatureSimple: ctx.get("X-Signature-Simple") || undefined,
+      timestamp: ctx.get("X-Timestamp") || undefined,
+    }, secret);
+
+    if (!verified) {
+      throw new UnauthorizedError("Didit Webhook 签名校验失败");
+    }
+
+    const payload = body as {
+      session_id?: string;
+      vendor_data?: string;
+      status?: string;
+      decision?: Record<string, unknown>;
+    };
+
+    void KycService.handleDiditWebhook(payload).catch((err) => {
+      console.error("[didit/webhook] async handle failed:", err);
+    });
+
+    ctx.status = 200;
+    ctx.body = { ok: true };
   }
 }

@@ -28,6 +28,18 @@ export const adminKycListQuerySchema = z.object({
   status: z.enum(["pending", "verified", "rejected"]).optional(),
 });
 
+export const diditCreateSessionBodySchema = z.object({
+  callbackUrl: z.string().url().optional(),
+  language: z.string().trim().min(2).max(8).optional(),
+});
+
+export const diditSyncBodySchema = z.object({
+  sessionId: z.string().uuid("无效的 Didit session ID"),
+});
+
+export type DiditCreateSessionBody = z.infer<typeof diditCreateSessionBodySchema>;
+export type DiditSyncBody = z.infer<typeof diditSyncBodySchema>;
+
 export type SubmitKycBody = z.infer<typeof submitKycBodySchema>;
 export type ReviewKycBody = z.infer<typeof reviewKycBodySchema>;
 export type AdminKycListQuery = z.infer<typeof adminKycListQuerySchema>;

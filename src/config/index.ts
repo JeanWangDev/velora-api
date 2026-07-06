@@ -42,6 +42,18 @@ export interface AppConfig {
     credentialsKey: string;
     okxRestBaseUrl: string;
   };
+  didit: {
+    enabled: boolean;
+    apiKey: string;
+    workflowId: string;
+    webhookSecret: string;
+    baseUrl: string;
+    callbackUrl: string;
+  };
+  kyc: {
+    /** 开发阶段：提交证件后自动通过，无需 Didit / 人工审核 */
+    devAutoApprove: boolean;
+  };
   billing: {
     enabled: boolean;
     orderExpireMinutes: number;
@@ -121,6 +133,17 @@ const development: AppConfig = {
     credentialsKey: process.env.EXCHANGE_CREDENTIALS_KEY || "",
     okxRestBaseUrl: process.env.OKX_REST_BASE_URL || "https://www.okx.com",
   },
+  didit: {
+    enabled: envBool("DIDIT_ENABLED", false),
+    apiKey: process.env.DIDIT_API_KEY || "",
+    workflowId: process.env.DIDIT_WORKFLOW_ID || "",
+    webhookSecret: process.env.DIDIT_WEBHOOK_SECRET || "",
+    baseUrl: process.env.DIDIT_API_BASE_URL || "https://verification.didit.me",
+    callbackUrl: process.env.DIDIT_CALLBACK_URL || "",
+  },
+  kyc: {
+    devAutoApprove: envBool("KYC_DEV_AUTO_APPROVE", true),
+  },
   billing: {
     enabled: envBool("BILLING_ENABLED", true),
     orderExpireMinutes: parseInt(process.env.BILLING_ORDER_EXPIRE_MINUTES || "10", 10),
@@ -152,6 +175,10 @@ const production: AppConfig = {
   billing: {
     ...development.billing,
     devAutoConfirm: envBool("BILLING_DEV_AUTO_CONFIRM", false),
+  },
+  kyc: {
+    ...development.kyc,
+    devAutoApprove: envBool("KYC_DEV_AUTO_APPROVE", false),
   },
 };
 

@@ -17,6 +17,7 @@ export class KycVerification extends Model {
   declare validUntil: string | null;
   declare docFrontName: string | null;
   declare docBackName: string | null;
+  declare diditSessionId: string | null;
   declare rejectReason: string | null;
   declare submittedAt: Date | null;
   declare reviewedAt: Date | null;
@@ -53,6 +54,11 @@ export async function initKycVerificationModel() {
       validUntil: { type: DataTypes.STRING(32), field: "f_valid_until", allowNull: true },
       docFrontName: { type: DataTypes.STRING(255), field: "f_doc_front_name", allowNull: true },
       docBackName: { type: DataTypes.STRING(255), field: "f_doc_back_name", allowNull: true },
+      diditSessionId: {
+        type: DataTypes.STRING(64),
+        field: "f_didit_session_id",
+        allowNull: true,
+      },
       rejectReason: { type: DataTypes.STRING(255), field: "f_reject_reason", allowNull: true },
       submittedAt: { type: DataTypes.DATE, field: "f_submitted_at", allowNull: true },
       reviewedAt: { type: DataTypes.DATE, field: "f_reviewed_at", allowNull: true },

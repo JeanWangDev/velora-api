@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS t_kyc_verification (
   f_valid_until VARCHAR(32) NULL,
   f_doc_front_name VARCHAR(255) NULL,
   f_doc_back_name VARCHAR(255) NULL,
+  f_didit_session_id VARCHAR(64) NULL COMMENT 'Didit verification session UUID',
   f_reject_reason VARCHAR(255) NULL,
   f_submitted_at DATETIME NULL,
   f_reviewed_at DATETIME NULL,

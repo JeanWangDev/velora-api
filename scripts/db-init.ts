@@ -34,6 +34,7 @@ const sqlFiles = [
   "scripts/sql/strategy-creator.sql",
   "scripts/sql/strategy-mode-b-ext.sql",
   "scripts/sql/kyc.sql",
+  "scripts/sql/kyc-didit.sql",
 ];
 
 async function main() {
