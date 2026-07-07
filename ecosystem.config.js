@@ -6,7 +6,7 @@ const tsxBin = resolve(root, "node_modules/.bin/tsx");
 /**
  * 同机双环境：
  *   production   → PORT 4000 → api.velora.com
- *   development  → PORT 4001 → api-test.velora.com
+ *   development  → PORT 4001 → velora-api-test.aipassly.com
  */
 module.exports = {
   apps: [

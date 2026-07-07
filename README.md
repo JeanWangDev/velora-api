@@ -33,6 +33,24 @@ yarn deploy:test   # PM2: velora-api-test → 4001
 yarn deploy:prod   # PM2: velora-api → 4000
 ```
 
+### 测试服（velora-api-test.aipassly.com）
+
+```bash
+cp .env.server-test.example .env.development   # 填 TiDB / JWT / Didit 等
+yarn deploy:test
+
+# 仅 API 需要 Nginx（前端走 Cloudflare Workers）
+sudo ./scripts/setup-nginx-test.sh
+sudo certbot --nginx -d velora-api-test.aipassly.com
+```
+
+前端（velora-test.aipassly.com）在 `Velora-web`，与 trading-client 相同：
+
+```bash
+yarn deploy:test   # OpenNext → Cloudflare Worker velora-web-test
+# 在 Cloudflare 控制台把 velora-test.aipassly.com 绑到该 Worker
+```
+
 ## 文档
 
 产品与技术文档见 `../velora-prd/`。
