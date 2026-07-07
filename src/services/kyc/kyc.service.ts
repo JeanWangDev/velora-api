@@ -37,9 +37,10 @@ export class KycService {
 
     const now = new Date();
     const autoApprove = config.kyc.devAutoApprove;
+    const status: KycStatus = autoApprove ? "verified" : "pending";
     const payload = {
       userId,
-      status: (autoApprove ? "verified" : "pending") as const,
+      status,
       idType: body.idType,
       fullName: body.fullName,
       idNumber: body.idNumber,
