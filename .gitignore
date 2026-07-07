@@ -3,8 +3,6 @@ dist
 uploads
 .pnp.*
 
-.env*.local
-.env.development
-.env.production
+
 
 .DS_Store
