@@ -10,6 +10,8 @@ const PUBLIC_AUTH_ROUTES = new Set([
   "POST /api/v1/auth/verify-code",
   "POST /api/v1/auth/register",
   "POST /api/v1/auth/login",
+  "POST /api/v1/auth/login/challenge",
+  "POST /api/v1/auth/login/verify",
   "POST /api/v1/auth/forgot-password",
   "POST /api/v1/auth/reset-password",
   "POST /api/v1/kyc/didit/webhook",
