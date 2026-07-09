@@ -30,6 +30,13 @@ import {
 } from "@/db/models/creator";
 import { initExchangeConnectionModel } from "@/db/models/exchange/exchange-connection.model";
 import { initKycVerificationModel } from "@/db/models/kyc";
+import { initAccountBalanceModel, initAccountLedgerModel } from "@/db/models/account";
+import {
+  initSpotOrderModel,
+  initSpotSymbolModel,
+  initSpotTradeModel,
+} from "@/db/models/spot";
+import { initAdminFinanceOpModel } from "@/db/models/admin";
 import {
   initStrategyFollowModel,
   initStrategyModel,
@@ -64,6 +71,12 @@ export async function initModels() {
   await initCopySubscriptionModel();
   await initCopyOrderLogModel();
   await initKycVerificationModel();
+  await initAccountBalanceModel();
+  await initAccountLedgerModel();
+  await initSpotSymbolModel();
+  await initSpotOrderModel();
+  await initSpotTradeModel();
+  await initAdminFinanceOpModel();
 }
 
 export {
@@ -94,3 +107,13 @@ export { CreatorBalance, CreatorLedger, CreatorWithdrawal } from "@/db/models/cr
 export { ExchangeConnection } from "@/db/models/exchange/exchange-connection.model";
 export { CopySubscription, CopyOrderLog } from "@/db/models/copy";
 export { KycVerification } from "@/db/models/kyc";
+export { AccountBalance, AccountLedger, type LedgerType } from "@/db/models/account";
+export {
+  SpotSymbol,
+  SpotOrder,
+  SpotTrade,
+  type SpotOrderSide,
+  type SpotOrderType,
+  type SpotOrderStatus,
+} from "@/db/models/spot";
+export { AdminFinanceOp, type AdminFinanceOpType } from "@/db/models/admin";

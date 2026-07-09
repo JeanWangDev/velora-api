@@ -3,8 +3,6 @@ import { config } from "@/config";
 import { TradingSymbol } from "@/db/models/market";
 import { BadRequestError, NotFoundError } from "@/errors/app-error";
 
-export type AccessTier = 0 | 1;
-
 export type TradingPairRecord = {
   id: number;
   baseAsset: string;
@@ -13,17 +11,10 @@ export type TradingPairRecord = {
   displayName: string;
   sortOrder: number;
   isDefault: boolean;
-  accessTier: AccessTier;
   status: number;
 };
 
-export type TradingPairPublicRecord = TradingPairRecord & {
-  locked: boolean;
-};
-
 const ACTIVE = 1;
-const ACCESS_FREE: AccessTier = 0;
-const ACCESS_VIP: AccessTier = 1;
 
 const FALLBACK_PAIRS: TradingPairRecord[] = [
   {
@@ -34,7 +25,6 @@ const FALLBACK_PAIRS: TradingPairRecord[] = [
     displayName: "Bitcoin",
     sortOrder: 10,
     isDefault: true,
-    accessTier: ACCESS_FREE,
     status: ACTIVE,
   },
   {
@@ -45,7 +35,6 @@ const FALLBACK_PAIRS: TradingPairRecord[] = [
     displayName: "Ethereum",
     sortOrder: 20,
     isDefault: false,
-    accessTier: ACCESS_FREE,
     status: ACTIVE,
   },
   {
@@ -56,7 +45,6 @@ const FALLBACK_PAIRS: TradingPairRecord[] = [
     displayName: "Solana",
     sortOrder: 30,
     isDefault: false,
-    accessTier: ACCESS_FREE,
     status: ACTIVE,
   },
   {
@@ -67,7 +55,6 @@ const FALLBACK_PAIRS: TradingPairRecord[] = [
     displayName: "BNB",
     sortOrder: 40,
     isDefault: false,
-    accessTier: ACCESS_VIP,
     status: ACTIVE,
   },
   {
@@ -78,7 +65,6 @@ const FALLBACK_PAIRS: TradingPairRecord[] = [
     displayName: "XRP",
     sortOrder: 50,
     isDefault: false,
-    accessTier: ACCESS_VIP,
     status: ACTIVE,
   },
 ];
@@ -92,24 +78,8 @@ function mapRow(row: TradingSymbol): TradingPairRecord {
     displayName: row.displayName || row.baseAsset,
     sortOrder: row.sortOrder,
     isDefault: row.isDefault === 1,
-    accessTier: row.accessTier === ACCESS_VIP ? ACCESS_VIP : ACCESS_FREE,
     status: row.status,
   };
-}
-
-function canAccessVipPairs(roleKey?: string, roleLevel?: number): boolean {
-  if (roleKey === "admin" || roleKey === "super_admin") return true;
-  return typeof roleLevel === "number" && roleLevel >= 2;
-}
-
-function withLocked(
-  record: TradingPairRecord,
-  roleKey?: string,
-  roleLevel?: number,
-): TradingPairPublicRecord {
-  const locked =
-    record.accessTier === ACCESS_VIP && !canAccessVipPairs(roleKey, roleLevel);
-  return { ...record, locked };
 }
 
 export type CreateTradingSymbolInput = {
@@ -119,7 +89,6 @@ export type CreateTradingSymbolInput = {
   displayName?: string;
   sortOrder?: number;
   isDefault?: boolean;
-  accessTier?: AccessTier;
   status?: 0 | 1;
 };
 
@@ -130,17 +99,12 @@ export type UpdateTradingSymbolInput = {
   displayName?: string;
   sortOrder?: number;
   isDefault?: boolean;
-  accessTier?: AccessTier;
   status?: 0 | 1;
 };
 
 export class TradingSymbolService {
-  static async listActivePublic(options?: {
-    roleKey?: string;
-    roleLevel?: number;
-  }): Promise<TradingPairPublicRecord[]> {
-    const rows = await TradingSymbolService.listActive();
-    return rows.map((row) => withLocked(row, options?.roleKey, options?.roleLevel));
+  static async listActivePublic(): Promise<TradingPairRecord[]> {
+    return TradingSymbolService.listActive();
   }
 
   static async listActive(): Promise<TradingPairRecord[]> {
@@ -276,7 +240,6 @@ export class TradingSymbolService {
       displayName: (input.displayName ?? "").trim() || baseAsset,
       sortOrder: input.sortOrder ?? 0,
       isDefault: input.isDefault ? 1 : 0,
-      accessTier: input.accessTier ?? ACCESS_FREE,
       status: input.status ?? ACTIVE,
       createTime: now,
       updateTime: now,
@@ -313,7 +276,6 @@ export class TradingSymbolService {
       displayName: string;
       sortOrder: number;
       isDefault: number;
-      accessTier: number;
       status: number;
       updateTime: Date;
     }> = { updateTime: new Date() };
@@ -325,7 +287,6 @@ export class TradingSymbolService {
       updates.displayName = input.displayName.trim();
     }
     if (input.sortOrder !== undefined) updates.sortOrder = input.sortOrder;
-    if (input.accessTier !== undefined) updates.accessTier = input.accessTier;
     if (input.status !== undefined) updates.status = input.status;
 
     if (input.isDefault === true) {

@@ -9,7 +9,6 @@ export class TradingSymbol extends Model {
   declare displayName: string;
   declare sortOrder: number;
   declare isDefault: number;
-  declare accessTier: number;
   declare status: number;
   declare createTime: Date;
   declare updateTime: Date;
@@ -58,12 +57,6 @@ export async function initTradingSymbolModel() {
       isDefault: {
         type: DataTypes.TINYINT,
         field: "f_is_default",
-        allowNull: false,
-        defaultValue: 0,
-      },
-      accessTier: {
-        type: DataTypes.TINYINT,
-        field: "f_access_tier",
         allowNull: false,
         defaultValue: 0,
       },

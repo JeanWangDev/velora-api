@@ -21,8 +21,8 @@ const sqlFiles = [
   "scripts/sql/init.sql",
   "scripts/sql/event.sql",
   "scripts/sql/symbol-table.sql",
-  "scripts/sql/trading-symbol-access-tier.sql",
   "scripts/sql/symbol-seed.sql",
+  "scripts/sql/trading-symbol-drop-access-tier.sql",
   "scripts/sql/chart-template.sql",
   "scripts/sql/chart-template-migrate-symbol-id.sql",
   "scripts/sql/chart-template-migrate-visibility.sql",
@@ -35,6 +35,8 @@ const sqlFiles = [
   "scripts/sql/strategy-mode-b-ext.sql",
   "scripts/sql/kyc.sql",
   "scripts/sql/kyc-didit.sql",
+  "scripts/sql/account.sql",
+  "scripts/sql/trading.sql",
 ];
 
 async function main() {

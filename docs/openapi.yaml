@@ -912,7 +912,6 @@ paths:
                 displayName: { type: string }
                 sortOrder: { type: integer, default: 0 }
                 isDefault: { type: boolean, default: false }
-                accessTier: { type: integer, enum: [0, 1], default: 0 }
                 status: { type: integer, enum: [0, 1], default: 1 }
       responses: { "200": { $ref: '#/components/responses/Envelope' } }
   /api/v1/admin/trading-pairs/update:
@@ -934,7 +933,6 @@ paths:
                 displayName: { type: string }
                 sortOrder: { type: integer }
                 isDefault: { type: boolean }
-                accessTier: { type: integer, enum: [0, 1] }
                 status: { type: integer, enum: [0, 1] }
       responses: { "200": { $ref: '#/components/responses/Envelope' } }
   /api/v1/admin/trading-pairs/remove:

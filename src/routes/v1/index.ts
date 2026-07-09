@@ -11,6 +11,8 @@ import creatorRoutes from "./creator";
 import exchangeRoutes from "./exchanges";
 import copyRoutes from "./copy";
 import kycRoutes from "./kyc";
+import accountRoutes from "./account";
+import spotRoutes from "./spot";
 
 const router = new Router({ prefix: "/v1" });
 
@@ -26,5 +28,7 @@ router.use(creatorRoutes.routes(), creatorRoutes.allowedMethods());
 router.use(exchangeRoutes.routes(), exchangeRoutes.allowedMethods());
 router.use(copyRoutes.routes(), copyRoutes.allowedMethods());
 router.use(kycRoutes.routes(), kycRoutes.allowedMethods());
+router.use(accountRoutes.routes(), accountRoutes.allowedMethods());
+router.use(spotRoutes.routes(), spotRoutes.allowedMethods());
 
 export default router;

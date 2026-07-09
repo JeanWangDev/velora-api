@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import { config } from "@/config";
 import { KycVerification, User } from "@/db";
 import { BadRequestError, NotFoundError } from "@/errors/app-error";
@@ -15,7 +16,32 @@ function assertDbReady() {
   }
 }
 
+/** 无效 / 占位符证件号，不参与去重校验 */
+function isRealIdNumber(idNumber: string | null | undefined): boolean {
+  const value = (idNumber ?? "").trim();
+  return value.length > 0 && value !== "—";
+}
+
 export class KycService {
+  /**
+   * 一人一证一账号：查询该证件号是否已被其它账号认证通过（verified）。
+   * 命中则返回占用记录，否则返回 null。占位符证件号不参与校验。
+   */
+  private static async findVerifiedOwnerByIdNumber(
+    idNumber: string,
+    excludeUserId: number,
+  ): Promise<KycVerification | null> {
+    if (!isRealIdNumber(idNumber)) {
+      return null;
+    }
+    return KycVerification.findOne({
+      where: {
+        idNumber: idNumber.trim(),
+        status: "verified",
+        userId: { [Op.ne]: excludeUserId },
+      },
+    });
+  }
   /** 获取用户当前 KYC 记录（不存在返回 null） */
   static async getForUser(userId: number): Promise<KycVerification | null> {
     assertDbReady();
@@ -33,6 +59,11 @@ export class KycService {
     const existing = await KycVerification.findOne({ where: { userId } });
     if (existing && existing.status === "verified") {
       throw new BadRequestError("您已完成身份认证，无需重复提交");
+    }
+
+    const owner = await KycService.findVerifiedOwnerByIdNumber(body.idNumber, userId);
+    if (owner) {
+      throw new BadRequestError("该证件已绑定其他账号，一个证件仅可认证一个账号");
     }
 
     const now = new Date();
@@ -109,6 +140,10 @@ export class KycService {
 
     const now = new Date();
     if (action === "approve") {
+      const owner = await KycService.findVerifiedOwnerByIdNumber(row.idNumber, userId);
+      if (owner) {
+        throw new BadRequestError("该证件已绑定其他账号，一个证件仅可认证一个账号");
+      }
       await row.update({ status: "verified", reviewedAt: now, rejectReason: null });
     } else {
       await row.update({
@@ -220,9 +255,21 @@ export class KycService {
     const now = new Date();
     const existing = await KycVerification.findOne({ where: { userId } });
 
+    let status = parsed.status;
+    let rejectReason = parsed.status === "rejected" ? (parsed.rejectReason ?? null) : null;
+
+    // 一人一证一账号：若 Didit 通过但该证件已被其他账号认证，落为拒绝
+    if (status === "verified") {
+      const owner = await KycService.findVerifiedOwnerByIdNumber(parsed.idNumber, userId);
+      if (owner) {
+        status = "rejected";
+        rejectReason = "该证件已绑定其他账号，一个证件仅可认证一个账号";
+      }
+    }
+
     const payload = {
       userId,
-      status: parsed.status,
+      status,
       idType: parsed.idType,
       fullName: parsed.fullName,
       idNumber: parsed.idNumber,
@@ -232,10 +279,9 @@ export class KycService {
       docFrontName: parsed.docFrontName ?? null,
       docBackName: parsed.docBackName ?? null,
       diditSessionId: sessionId,
-      rejectReason: parsed.status === "rejected" ? (parsed.rejectReason ?? null) : null,
+      rejectReason,
       submittedAt: existing?.submittedAt ?? now,
-      reviewedAt:
-        parsed.status === "verified" || parsed.status === "rejected" ? now : null,
+      reviewedAt: status === "verified" || status === "rejected" ? now : null,
     };
 
     if (existing) {

@@ -7,7 +7,6 @@ import {
   toTradingPairDto,
 } from "@/dto/market";
 import { BadRequestError } from "@/errors/app-error";
-import { optionalAuthUser } from "@/middlewares/optional-auth.middleware";
 import { MarketBriefService, MarketService, TradingSymbolService } from "@/services/market";
 import {
   formatZodError,
@@ -55,11 +54,7 @@ export class MarketController {
   }
 
   static async listTradingPairs(ctx: Context) {
-    const authUser = optionalAuthUser(ctx);
-    const pairs = await TradingSymbolService.listActivePublic({
-      roleKey: authUser?.roleKey,
-      roleLevel: authUser?.roleLevel,
-    });
+    const pairs = await TradingSymbolService.listActivePublic();
     ctx.set("Cache-Control", "public, max-age=60");
     ctx.sendSuccess(pairs.map(toTradingPairDto));
   }

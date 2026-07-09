@@ -96,3 +96,56 @@ export function signAccessToken(
 
   return { accessToken, expiresAt: exp * 1000 };
 }
+
+const LOGIN_CHALLENGE_EXPIRES_IN = "5m";
+
+export function signLoginChallenge(userId: number, email: string): string {
+  if (!config.jwtSecret) {
+    throw new UnauthorizedError("服务端鉴权未配置");
+  }
+
+  return jwt.sign(
+    { typ: "login_challenge", email },
+    config.jwtSecret,
+    {
+      algorithm: ACCESS_TOKEN_ALGORITHM,
+      subject: String(userId),
+      expiresIn: LOGIN_CHALLENGE_EXPIRES_IN,
+    } as SignOptions,
+  );
+}
+
+export function verifyLoginChallenge(token: string): { userId: number; email: string } {
+  if (!config.jwtSecret) {
+    throw new UnauthorizedError("服务端鉴权未配置");
+  }
+
+  try {
+    const payload = jwt.verify(token, config.jwtSecret, {
+      algorithms: [ACCESS_TOKEN_ALGORITHM],
+    });
+
+    if (typeof payload === "string" || !payload || !payload.sub) {
+      throw new UnauthorizedError("登录验证已失效，请重新登录");
+    }
+
+    if (payload.typ !== "login_challenge") {
+      throw new UnauthorizedError("登录验证已失效，请重新登录");
+    }
+
+    const userId = Number(payload.sub);
+    const email = typeof payload.email === "string" ? payload.email : "";
+
+    if (!Number.isFinite(userId) || userId <= 0 || !email) {
+      throw new UnauthorizedError("登录验证已失效，请重新登录");
+    }
+
+    return { userId, email };
+  } catch (error) {
+    if (error instanceof UnauthorizedError) throw error;
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new UnauthorizedError("登录验证已过期，请重新登录");
+    }
+    throw new UnauthorizedError("登录验证已失效，请重新登录");
+  }
+}

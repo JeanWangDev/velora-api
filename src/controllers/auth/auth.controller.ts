@@ -6,6 +6,7 @@ import { AuthService } from "@/services/auth";
 import {
   forgotPasswordBodySchema,
   loginBodySchema,
+  loginVerifyBodySchema,
   registerBodySchema,
   resetPasswordBodySchema,
   sendEmailCodeBodySchema,
@@ -41,6 +42,18 @@ export class AuthController {
   static async login(ctx: Context) {
     const body = validateBody(loginBodySchema, ctx.request.body);
     const session = await AuthService.login(body);
+    ctx.sendSuccess(toAuthSessionDto(session));
+  }
+
+  static async loginChallenge(ctx: Context) {
+    const body = validateBody(loginBodySchema, ctx.request.body);
+    const result = await AuthService.loginChallenge(body);
+    ctx.sendSuccess(result);
+  }
+
+  static async loginVerify(ctx: Context) {
+    const body = validateBody(loginVerifyBodySchema, ctx.request.body);
+    const session = await AuthService.loginVerify(body);
     ctx.sendSuccess(toAuthSessionDto(session));
   }
 

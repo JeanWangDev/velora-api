@@ -2,22 +2,22 @@
 USE `velora`;
 
 ALTER TABLE t_strategy
-  ADD COLUMN f_user_id BIGINT NOT NULL DEFAULT 0 COMMENT '0=platform official' AFTER f_id;
+  ADD COLUMN IF NOT EXISTS f_user_id BIGINT NOT NULL DEFAULT 0 COMMENT '0=platform official' AFTER f_id;
 
 ALTER TABLE t_strategy
-  ADD COLUMN f_visibility TINYINT NOT NULL DEFAULT 1 COMMENT '0=draft 1=marketplace' AFTER f_status;
+  ADD COLUMN IF NOT EXISTS f_visibility TINYINT NOT NULL DEFAULT 1 COMMENT '0=draft 1=marketplace' AFTER f_status;
 
 ALTER TABLE t_strategy
-  ADD COLUMN f_follow_fee_usdt DECIMAL(18, 6) NOT NULL DEFAULT 0 AFTER f_visibility;
+  ADD COLUMN IF NOT EXISTS f_follow_fee_usdt DECIMAL(18, 6) NOT NULL DEFAULT 0 AFTER f_visibility;
 
 ALTER TABLE t_strategy
-  ADD COLUMN f_platform_fee_rate DECIMAL(5, 2) NOT NULL DEFAULT 20.00 AFTER f_follow_fee_usdt;
+  ADD COLUMN IF NOT EXISTS f_platform_fee_rate DECIMAL(5, 2) NOT NULL DEFAULT 20.00 AFTER f_follow_fee_usdt;
 
 ALTER TABLE t_strategy
-  ADD COLUMN f_source_strategy_key VARCHAR(32) NULL AFTER f_platform_fee_rate;
+  ADD COLUMN IF NOT EXISTS f_source_strategy_key VARCHAR(32) NULL AFTER f_platform_fee_rate;
 
 ALTER TABLE t_strategy
-  ADD COLUMN f_follower_count INT NOT NULL DEFAULT 0 AFTER f_source_strategy_key;
+  ADD COLUMN IF NOT EXISTS f_follower_count INT NOT NULL DEFAULT 0 AFTER f_source_strategy_key;
 
 UPDATE t_strategy SET f_user_id = 0, f_visibility = 1;
 

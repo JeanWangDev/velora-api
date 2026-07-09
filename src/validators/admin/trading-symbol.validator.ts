@@ -4,8 +4,6 @@ export function formatZodError(error: z.ZodError): string {
   return error.issues.map((issue) => issue.message).join("；");
 }
 
-const accessTierSchema = z.union([z.literal(0), z.literal(1)]);
-
 export const createTradingSymbolBodySchema = z.object({
   baseAsset: z.string().trim().min(1).max(16),
   symbol: z
@@ -18,7 +16,6 @@ export const createTradingSymbolBodySchema = z.object({
   displayName: z.string().trim().max(64).optional().default(""),
   sortOrder: z.number().int().min(0).max(99999).optional().default(0),
   isDefault: z.boolean().optional().default(false),
-  accessTier: accessTierSchema.optional().default(0),
   status: z.union([z.literal(0), z.literal(1)]).optional().default(1),
 });
 
@@ -37,7 +34,6 @@ export const updateTradingSymbolBodySchema = z
     displayName: z.string().trim().max(64).optional(),
     sortOrder: z.number().int().min(0).max(99999).optional(),
     isDefault: z.boolean().optional(),
-    accessTier: accessTierSchema.optional(),
     status: z.union([z.literal(0), z.literal(1)]).optional(),
   })
   .refine(
@@ -48,7 +44,6 @@ export const updateTradingSymbolBodySchema = z
       body.displayName !== undefined ||
       body.sortOrder !== undefined ||
       body.isDefault !== undefined ||
-      body.accessTier !== undefined ||
       body.status !== undefined,
     { message: "至少提供一个要更新的字段" },
   );

@@ -8,6 +8,8 @@ router.post("/send-code", AuthController.sendEmailCode);
 router.post("/verify-code", AuthController.verifyEmailCode);
 router.post("/register", AuthController.register);
 router.post("/login", AuthController.login);
+router.post("/login/challenge", AuthController.loginChallenge);
+router.post("/login/verify", AuthController.loginVerify);
 router.post("/forgot-password", AuthController.forgotPassword);
 router.post("/reset-password", AuthController.resetPassword);
 router.get("/me", AuthController.me);

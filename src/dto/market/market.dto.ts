@@ -39,9 +39,7 @@ export interface TradingPairDto {
   displayName: string;
   sortOrder: number;
   isDefault: boolean;
-  accessTier: 0 | 1;
   status: number;
-  locked?: boolean;
 }
 
 export function toTradingPairDto(item: {
@@ -52,9 +50,7 @@ export function toTradingPairDto(item: {
   displayName: string;
   sortOrder: number;
   isDefault: boolean;
-  accessTier: 0 | 1;
   status: number;
-  locked?: boolean;
 }): TradingPairDto {
   return {
     id: item.id,
@@ -64,9 +60,7 @@ export function toTradingPairDto(item: {
     displayName: item.displayName,
     sortOrder: item.sortOrder,
     isDefault: item.isDefault,
-    accessTier: item.accessTier,
     status: item.status,
-    ...(item.locked !== undefined ? { locked: item.locked } : {}),
   };
 }
 

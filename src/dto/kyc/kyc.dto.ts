@@ -13,6 +13,7 @@ export interface KycVerificationDto {
   rejectReason: string | null;
   submittedAt: number | null;
   reviewedAt: number | null;
+  diditSessionId: string | null;
 }
 
 /** 对身份证号做脱敏，仅保留前 4 位与后 4 位 */
@@ -55,5 +56,6 @@ export function toKycVerificationDto(
     rejectReason: row.rejectReason ?? null,
     submittedAt: row.submittedAt ? row.submittedAt.getTime() : null,
     reviewedAt: row.reviewedAt ? row.reviewedAt.getTime() : null,
+    diditSessionId: row.diditSessionId ?? null,
   };
 }

@@ -155,6 +155,13 @@ export function mapDiditStatus(diditStatus: string): ParsedDiditKyc["status"] {
   }
 }
 
+function truncate(value: string | undefined | null, max: number): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  return trimmed.length <= max ? trimmed : trimmed.slice(0, max);
+}
+
 /** Extract KYC fields from Didit decision payload. */
 export function parseDiditDecision(
   decision: DiditDecision,
@@ -192,11 +199,12 @@ export function parseDiditDecision(
     fullName,
     idNumber,
     countryIso,
-    address: idDoc?.formatted_address ?? idDoc?.address ?? undefined,
+    address: truncate(idDoc?.formatted_address ?? idDoc?.address, 255),
     validUntil: idDoc?.expiration_date ?? undefined,
-    docFrontName: idDoc?.front_image ?? undefined,
-    docBackName: idDoc?.back_image ?? undefined,
-    rejectReason,
+    // Didit 返回的是远程图片 URL，不写入 doc 字段（varchar 255 会溢出）
+    docFrontName: undefined,
+    docBackName: undefined,
+    rejectReason: truncate(rejectReason, 255),
   };
 }
 

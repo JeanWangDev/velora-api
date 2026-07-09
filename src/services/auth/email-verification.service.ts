@@ -8,10 +8,12 @@ import { normalizeEmail } from "@/utils/password";
 
 export const EMAIL_PURPOSE_REGISTER = "register";
 export const EMAIL_PURPOSE_RESET_PASSWORD = "reset_password";
+export const EMAIL_PURPOSE_LOGIN = "login";
 
 export type EmailVerificationPurpose =
   | typeof EMAIL_PURPOSE_REGISTER
-  | typeof EMAIL_PURPOSE_RESET_PASSWORD;
+  | typeof EMAIL_PURPOSE_RESET_PASSWORD
+  | typeof EMAIL_PURPOSE_LOGIN;
 
 /** 验证码有效期：给用户留出完成多步注册表单的时间，而不是 1 分钟就过期 */
 const CODE_TTL_MS = 10 * 60_000;

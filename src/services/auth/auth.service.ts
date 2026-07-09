@@ -11,9 +11,10 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/utils/password";
-import { signAccessToken } from "@/utils/jwt";
+import { signAccessToken, signLoginChallenge, verifyLoginChallenge } from "@/utils/jwt";
 import { DEFAULT_REGISTER_ROLE_KEY } from "@/constants/roles";
 import {
+  EMAIL_PURPOSE_LOGIN,
   EMAIL_PURPOSE_REGISTER,
   EMAIL_PURPOSE_RESET_PASSWORD,
   EmailVerificationService,
@@ -70,6 +71,16 @@ function toSession(user: AuthUserProfile) {
   });
 
   return { accessToken, expiresAt, user };
+}
+
+function maskEmail(email: string): string {
+  const at = email.indexOf("@");
+  if (at < 0) return email;
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (local.length <= 1) return `*@${domain}`;
+  if (local.length === 2) return `${local[0]}*@${domain}`;
+  return `${local[0]}***${local[local.length - 1]}@${domain}`;
 }
 
 export class AuthService {
@@ -181,6 +192,75 @@ export class AuthService {
       roleKey: user.role!.roleKey,
       roleName: user.role!.roleName,
       roleLevel: user.role!.roleLevel,
+    };
+
+    return toSession(profile);
+  }
+
+  /** 登录第一步：校验密码并发送邮箱验证码（OKX 式二次验证） */
+  static async loginChallenge(body: LoginBody) {
+    assertDbReady();
+
+    const user = await findUserByEmailWithRole(body.email);
+
+    if (!user) {
+      throw new NotFoundError("该账号不存在，请先注册");
+    }
+
+    if (user.status !== 1) {
+      throw new BadRequestError("账号已停用，请联系管理员");
+    }
+
+    const ok = await verifyPassword(body.password, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedError("密码错误");
+    }
+
+    const codeResult = await EmailVerificationService.sendCode(
+      body.email,
+      EMAIL_PURPOSE_LOGIN,
+    );
+
+    const challengeToken = signLoginChallenge(user.id, body.email);
+
+    return {
+      challengeToken,
+      maskedEmail: maskEmail(body.email),
+      message: codeResult.message,
+      ...(codeResult.devCode ? { devCode: codeResult.devCode } : {}),
+    };
+  }
+
+  /** 登录第二步：校验验证码并签发会话 */
+  static async loginVerify(body: { challengeToken: string; code: string }) {
+    assertDbReady();
+
+    const { userId, email } = verifyLoginChallenge(body.challengeToken);
+
+    await EmailVerificationService.verifyAndConsume(
+      email,
+      EMAIL_PURPOSE_LOGIN,
+      body.code,
+    );
+
+    const user = await User.findByPk(userId, {
+      include: [{ model: Role, as: "role", required: true }],
+    });
+
+    if (!user || user.status !== 1 || !user.role) {
+      throw new UnauthorizedError("登录验证已失效，请重新登录");
+    }
+
+    user.lastLoginTime = new Date();
+    await user.save();
+
+    const profile: AuthUserProfile = {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      roleKey: user.role.roleKey,
+      roleName: user.role.roleName,
+      roleLevel: user.role.roleLevel,
     };
 
     return toSession(profile);

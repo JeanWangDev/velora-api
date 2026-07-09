@@ -9,6 +9,7 @@ import { initDatabase } from "@/db/connection";
 import { initModels } from "@/db";
 import { warmUpstream } from "@/utils/http-client";
 import { startBinanceLiquidationWorker } from "@/ingest/binance-liquidation.worker";
+import { startSpotMatchingWorker } from "@/services/spot/spot-matching.worker";
 import { createEventsWsServer } from "@/ws/events-hub";
 import { createMarketWsServer } from "@/ws/market-hub";
 import { attachWsUpgradeRouter } from "@/ws/upgrade-router";
@@ -65,6 +66,10 @@ async function startServer() {
 
   if (config.db.enabled && config.liquidationWorkerEnabled) {
     startBinanceLiquidationWorker();
+  }
+
+  if (config.db.enabled) {
+    startSpotMatchingWorker();
   }
 
   httpServer.listen(config.port, "0.0.0.0", () => {

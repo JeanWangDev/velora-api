@@ -22,7 +22,7 @@ const verificationCodeSchema = z
 
 export const sendEmailCodeBodySchema = z.object({
   email: emailSchema,
-  purpose: z.enum(["register", "reset_password"], {
+  purpose: z.enum(["register", "reset_password", "login"], {
     message: "无效的验证码用途",
   }),
 });
@@ -30,7 +30,7 @@ export const sendEmailCodeBodySchema = z.object({
 /** 仅校验验证码是否正确（不消费），供前端在多步表单里提前给出真实反馈 */
 export const verifyEmailCodeBodySchema = z.object({
   email: emailSchema,
-  purpose: z.enum(["register", "reset_password"], {
+  purpose: z.enum(["register", "reset_password", "login"], {
     message: "无效的验证码用途",
   }),
   code: verificationCodeSchema,
@@ -50,8 +50,17 @@ export const registerBodySchema = z
   });
 
 export const loginBodySchema = z.object({
-  email: emailSchema,
+  email: z
+    .string({ message: "账号不能为空" })
+    .trim()
+    .min(1, "账号不能为空")
+    .transform((v) => v.toLowerCase()),
   password: z.string().min(1, "密码不能为空"),
+});
+
+export const loginVerifyBodySchema = z.object({
+  challengeToken: z.string().min(1, "登录验证已失效"),
+  code: verificationCodeSchema,
 });
 
 export const forgotPasswordBodySchema = z.object({
@@ -82,6 +91,7 @@ export type SendEmailCodeBody = z.infer<typeof sendEmailCodeBodySchema>;
 export type VerifyEmailCodeBody = z.infer<typeof verifyEmailCodeBodySchema>;
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
+export type LoginVerifyBody = z.infer<typeof loginVerifyBodySchema>;
 export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
 export type UpdateProfileBody = z.infer<typeof updateProfileBodySchema>;

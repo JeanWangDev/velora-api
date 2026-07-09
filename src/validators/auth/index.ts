@@ -1,6 +1,7 @@
 export {
   registerBodySchema,
   loginBodySchema,
+  loginVerifyBodySchema,
   sendEmailCodeBodySchema,
   verifyEmailCodeBodySchema,
   forgotPasswordBodySchema,
@@ -8,6 +9,7 @@ export {
   updateProfileBodySchema,
   type RegisterBody,
   type LoginBody,
+  type LoginVerifyBody,
   type SendEmailCodeBody,
   type VerifyEmailCodeBody,
   type ForgotPasswordBody,
