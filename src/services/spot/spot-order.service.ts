@@ -10,7 +10,9 @@ import {
 } from "@/db";
 import { BadRequestError, NotFoundError } from "@/errors/app-error";
 import { AccountService, roundAmount } from "@/services/account";
+import { SpotMatchingEngine } from "@/services/spot/spot-matching.engine";
 import { SpotSymbolService } from "@/services/spot/spot-symbol.service";
+import { RiskService } from "@/services/futures/futures-order.service";
 
 const EPSILON = 1e-9;
 
@@ -34,16 +36,8 @@ function genNo(prefix: string): string {
     .padStart(4, "0")}`.toUpperCase();
 }
 
-interface FillParams {
-  execPrice: number;
-  qty: number;
-  role: "maker" | "taker";
-  /** true=从冻结结算（挂单撮合）；false=从可用结算（即时成交） */
-  fromFrozen: boolean;
-}
-
 export class SpotOrderService {
-  /** 下单：市价即时成交 / 限价即时成交 / 限价挂单 */
+  /** 下单：CLOB 撮合 + 市价 LP 兜底 */
   static async placeOrder(userId: number, input: PlaceOrderInput): Promise<SpotOrder> {
     assertDbReady();
 
@@ -63,13 +57,12 @@ export class SpotOrderService {
     const lastPrice = await SpotSymbolService.getLastPrice(input.symbol);
     const limitPrice = input.type === "limit" ? roundAmount(Number(input.price)) : null;
 
-    // 是否可即时成交
-    let immediate = input.type === "market";
-    if (input.type === "limit" && limitPrice !== null) {
-      immediate =
-        input.side === "buy" ? limitPrice >= lastPrice : limitPrice <= lastPrice;
-    }
-    const execPrice = immediate ? lastPrice : (limitPrice as number);
+    await RiskService.checkSpotOrder(
+      userId,
+      meta.symbol,
+      quantity,
+      limitPrice ?? lastPrice,
+    );
 
     const order = await AccountService.runInTransaction(async (tx) => {
       const created = await SpotOrder.create(
@@ -93,18 +86,13 @@ export class SpotOrderService {
         { transaction: tx },
       );
 
-      if (immediate) {
-        await this.assertImmediateBalance(userId, input.side, execPrice, quantity, meta, tx);
-        await this.settleFill(
-          created,
-          { execPrice, qty: quantity, role: "taker", fromFrozen: false },
-          meta,
-          tx,
-        );
+      if (input.type === "limit" && limitPrice !== null) {
+        await this.freezeForLimit(created, limitPrice, quantity, meta, tx);
       } else {
-        await this.freezeForLimit(created, limitPrice as number, quantity, meta, tx);
+        await this.assertImmediateBalance(userId, input.side, lastPrice, quantity, meta, tx);
       }
 
+      await SpotMatchingEngine.matchOrder(created, meta, tx);
       return created;
     });
 
@@ -186,114 +174,6 @@ export class SpotOrderService {
     await order.save({ transaction: tx });
   }
 
-  /** 结算一笔成交：更新余额、写成交、更新订单（模拟盘一次全成） */
-  private static async settleFill(
-    order: SpotOrder,
-    fill: FillParams,
-    meta: SpotSymbol,
-    tx: Transaction,
-  ) {
-    const feeRate = fill.role === "maker" ? Number(meta.makerFee) : Number(meta.takerFee);
-    const { execPrice, qty } = fill;
-
-    let fee: number;
-    let feeCurrency: string;
-    let quoteSpent: number;
-
-    if (order.side === "buy") {
-      const quoteCost = roundAmount(execPrice * qty);
-      fee = roundAmount(qty * feeRate);
-      feeCurrency = meta.base;
-      const baseGained = roundAmount(qty - fee);
-      quoteSpent = quoteCost;
-
-      // 扣计价币（挂单从冻结，即时从可用）
-      await AccountService.adjust(
-        {
-          userId: order.userId,
-          currency: meta.quote,
-          availableDelta: fill.fromFrozen ? 0 : -quoteCost,
-          frozenDelta: fill.fromFrozen ? -quoteCost : 0,
-          ledgerType: "trade",
-          ledgerAmount: -quoteCost,
-          refId: order.orderNo,
-        },
-        tx,
-      );
-      // 到账基础币（已扣手续费）
-      await AccountService.adjust(
-        {
-          userId: order.userId,
-          currency: meta.base,
-          availableDelta: baseGained,
-          ledgerType: "trade",
-          ledgerAmount: baseGained,
-          refId: order.orderNo,
-        },
-        tx,
-      );
-    } else {
-      const quoteGross = roundAmount(execPrice * qty);
-      fee = roundAmount(quoteGross * feeRate);
-      feeCurrency = meta.quote;
-      const quoteGained = roundAmount(quoteGross - fee);
-      quoteSpent = quoteGained;
-
-      // 扣基础币（挂单从冻结，即时从可用）
-      await AccountService.adjust(
-        {
-          userId: order.userId,
-          currency: meta.base,
-          availableDelta: fill.fromFrozen ? 0 : -qty,
-          frozenDelta: fill.fromFrozen ? -qty : 0,
-          ledgerType: "trade",
-          ledgerAmount: -qty,
-          refId: order.orderNo,
-        },
-        tx,
-      );
-      // 到账计价币（已扣手续费）
-      await AccountService.adjust(
-        {
-          userId: order.userId,
-          currency: meta.quote,
-          availableDelta: quoteGained,
-          ledgerType: "trade",
-          ledgerAmount: quoteGained,
-          refId: order.orderNo,
-        },
-        tx,
-      );
-    }
-
-    await SpotTrade.create(
-      {
-        tradeNo: genNo("ST"),
-        orderId: order.id,
-        orderNo: order.orderNo,
-        userId: order.userId,
-        symbol: order.symbol,
-        side: order.side,
-        price: execPrice,
-        quantity: qty,
-        fee,
-        feeCurrency,
-        role: fill.role,
-      },
-      { transaction: tx },
-    );
-
-    order.filledQuantity = String(roundAmount(Number(order.filledQuantity) + qty));
-    order.avgPrice = String(execPrice);
-    order.quoteSpent = String(roundAmount(Number(order.quoteSpent) + quoteSpent));
-    order.fee = String(roundAmount(Number(order.fee) + fee));
-    order.feeCurrency = feeCurrency;
-    order.frozenCurrency = "";
-    order.frozenAmount = "0";
-    order.status = "filled";
-    await order.save({ transaction: tx });
-  }
-
   /** 撤单：释放剩余冻结 */
   static async cancelOrder(userId: number, orderNo: string): Promise<SpotOrder> {
     assertDbReady();
@@ -313,18 +193,24 @@ export class SpotOrderService {
 
       const frozen = Number(order.frozenAmount);
       if (frozen > EPSILON && order.frozenCurrency) {
-        await AccountService.adjust(
-          {
-            userId,
-            currency: order.frozenCurrency,
-            availableDelta: frozen,
-            frozenDelta: -frozen,
-            ledgerType: "unfreeze",
-            ledgerAmount: frozen,
-            refId: order.orderNo,
-          },
-          tx,
-        );
+        const totalQty = Number(order.quantity);
+        const filledQty = Number(order.filledQuantity);
+        const remainingRatio = roundAmount((totalQty - filledQty) / totalQty);
+        const release = roundAmount(frozen * (remainingRatio > 0 ? remainingRatio : 1));
+        if (release > EPSILON) {
+          await AccountService.adjust(
+            {
+              userId,
+              currency: order.frozenCurrency,
+              availableDelta: release,
+              frozenDelta: -release,
+              ledgerType: "unfreeze",
+              ledgerAmount: release,
+              refId: order.orderNo,
+            },
+            tx,
+          );
+        }
       }
 
       order.frozenCurrency = "";
@@ -390,77 +276,9 @@ export class SpotOrderService {
   }
 
   /**
-   * 撮合轮询：对所有限价挂单，若实时价触达委托价则以委托价成交。
-   * 模拟盘一次性全额成交（maker 费率）。
+   * 撮合轮询：CLOB 用户间撮合 + 市价单 LP 兜底
    */
   static async matchOpenOrders(): Promise<number> {
-    if (!config.db.enabled) return 0;
-
-    const orders = await SpotOrder.findAll({
-      where: { status: { [Op.in]: ["open", "partial"] }, type: "limit" },
-      order: [["id", "ASC"]],
-    });
-    if (orders.length === 0) return 0;
-
-    const priceCache = new Map<string, number>();
-    const metaCache = new Map<string, SpotSymbol>();
-    let filled = 0;
-
-    for (const order of orders) {
-      const symbol = order.symbol;
-      const price = Number(order.price);
-      if (!(price > 0)) continue;
-
-      let lastPrice = priceCache.get(symbol);
-      if (lastPrice === undefined) {
-        try {
-          lastPrice = await SpotSymbolService.getLastPrice(symbol);
-          priceCache.set(symbol, lastPrice);
-        } catch {
-          continue;
-        }
-      }
-
-      const hit = order.side === "buy" ? lastPrice <= price : lastPrice >= price;
-      if (!hit) continue;
-
-      let meta = metaCache.get(symbol);
-      if (!meta) {
-        try {
-          meta = await SpotSymbolService.requireTrading(symbol);
-          metaCache.set(symbol, meta);
-        } catch {
-          continue;
-        }
-      }
-
-      try {
-        await AccountService.runInTransaction(async (tx) => {
-          const locked = await SpotOrder.findOne({
-            where: { id: order.id },
-            transaction: tx,
-            lock: tx.LOCK.UPDATE,
-          });
-          if (!locked || (locked.status !== "open" && locked.status !== "partial")) {
-            return;
-          }
-          const remaining = roundAmount(
-            Number(locked.quantity) - Number(locked.filledQuantity),
-          );
-          if (remaining <= EPSILON) return;
-          await this.settleFill(
-            locked,
-            { execPrice: price, qty: remaining, role: "maker", fromFrozen: true },
-            meta as SpotSymbol,
-            tx,
-          );
-          filled += 1;
-        });
-      } catch (err) {
-        console.error("[spot-matching] fill failed:", (err as Error).message);
-      }
-    }
-
-    return filled;
+    return SpotMatchingEngine.matchOpenOrders();
   }
 }

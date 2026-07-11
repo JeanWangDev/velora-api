@@ -8,6 +8,7 @@ export class SpotTrade extends Model {
   declare orderId: number;
   declare orderNo: string;
   declare userId: number;
+  declare counterUserId: number;
   declare symbol: string;
   declare side: SpotOrderSide;
   declare price: string;
@@ -29,6 +30,12 @@ export async function initSpotTradeModel() {
       orderId: { type: DataTypes.BIGINT, field: "f_order_id", allowNull: false },
       orderNo: { type: DataTypes.STRING(32), field: "f_order_no", allowNull: false },
       userId: { type: DataTypes.BIGINT, field: "f_user_id", allowNull: false },
+      counterUserId: {
+        type: DataTypes.BIGINT,
+        field: "f_counter_user_id",
+        allowNull: false,
+        defaultValue: 0,
+      },
       symbol: { type: DataTypes.STRING(32), field: "f_symbol", allowNull: false },
       side: { type: DataTypes.STRING(8), field: "f_side", allowNull: false },
       price: { type: DataTypes.DECIMAL(36, 12), field: "f_price", allowNull: false },

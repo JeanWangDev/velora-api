@@ -12,5 +12,6 @@ router.get("/symbols", MarketController.searchSymbols);
 router.get("/trading-pairs", MarketController.listTradingPairs);
 router.get("/symbol-info", MarketController.getSymbolInfo);
 router.get("/ticker", MarketController.getTicker24h);
+router.get("/depth", MarketController.getDepth);
 
 export default router;

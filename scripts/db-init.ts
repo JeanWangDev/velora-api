@@ -37,6 +37,7 @@ const sqlFiles = [
   "scripts/sql/kyc-didit.sql",
   "scripts/sql/account.sql",
   "scripts/sql/trading.sql",
+  "scripts/sql/exchange-v2.sql",
 ];
 
 async function main() {

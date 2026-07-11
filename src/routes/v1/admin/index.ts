@@ -1,5 +1,5 @@
 import Router from "@koa/router";
-import { AdminTradingSymbolController, AdminUserController, AdminFinanceController } from "@/controllers/admin";
+import { AdminTradingSymbolController, AdminUserController, AdminFinanceController, AdminWithdrawController } from "@/controllers/admin";
 import { AdminBillingOrderController } from "@/controllers/admin/admin-billing-order.controller";
 
 const router = new Router({ prefix: "/admin" });
@@ -21,5 +21,10 @@ router.post("/finance/credit", AdminFinanceController.credit);
 router.post("/finance/debit", AdminFinanceController.debit);
 router.get("/finance/ops", AdminFinanceController.listOps);
 router.get("/finance/user-balances", AdminFinanceController.userBalances);
+
+router.get("/withdrawals/pending", AdminWithdrawController.listPending);
+router.post("/withdrawals/approve", AdminWithdrawController.approve);
+router.post("/withdrawals/reject", AdminWithdrawController.reject);
+router.post("/deposits/confirm", AdminWithdrawController.confirmDeposit);
 
 export default router;

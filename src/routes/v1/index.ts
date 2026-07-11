@@ -13,6 +13,10 @@ import copyRoutes from "./copy";
 import kycRoutes from "./kyc";
 import accountRoutes from "./account";
 import spotRoutes from "./spot";
+import walletRoutes from "./wallet";
+import notificationRoutes from "./notifications";
+import futuresRoutes from "./futures";
+import apiKeyRoutes from "./api-keys";
 
 const router = new Router({ prefix: "/v1" });
 
@@ -30,5 +34,9 @@ router.use(copyRoutes.routes(), copyRoutes.allowedMethods());
 router.use(kycRoutes.routes(), kycRoutes.allowedMethods());
 router.use(accountRoutes.routes(), accountRoutes.allowedMethods());
 router.use(spotRoutes.routes(), spotRoutes.allowedMethods());
+router.use(walletRoutes.routes(), walletRoutes.allowedMethods());
+router.use(notificationRoutes.routes(), notificationRoutes.allowedMethods());
+router.use(futuresRoutes.routes(), futuresRoutes.allowedMethods());
+router.use(apiKeyRoutes.routes(), apiKeyRoutes.allowedMethods());
 
 export default router;

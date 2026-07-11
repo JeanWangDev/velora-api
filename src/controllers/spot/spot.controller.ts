@@ -3,6 +3,8 @@ import { toSpotOrderDto, toSpotTradeDto } from "@/dto/spot";
 import { BadRequestError } from "@/errors/app-error";
 import { requireAuthUser } from "@/middlewares/auth.middleware";
 import { SpotOrderService, SpotSymbolService } from "@/services/spot";
+import { SpotAlgoOrderService } from "@/services/spot/spot-algo-order.service";
+import { SpotOrderBookService } from "@/services/spot/spot-orderbook.service";
 import {
   cancelSpotOrderBodySchema,
   placeSpotOrderBodySchema,
@@ -25,6 +27,16 @@ export class SpotController {
   static async symbols(ctx: Context) {
     const data = await SpotSymbolService.list();
     ctx.sendSuccess({ data });
+  }
+
+  /** 合并订单簿：内部 CLOB + 外部流动性 */
+  static async orderBook(ctx: Context) {
+    const symbol = String(ctx.query.symbol ?? "").toUpperCase();
+    const limit = Math.min(100, Math.max(5, Number(ctx.query.limit ?? 50)));
+    if (!symbol) throw new BadRequestError("symbol is required");
+    const book = await SpotOrderBookService.getMergedBook(symbol, limit);
+    ctx.set("Cache-Control", "no-cache");
+    ctx.sendSuccess(book);
   }
 
   /** 下单 */
@@ -81,5 +93,56 @@ export class SpotController {
       page: result.page,
       pageSize: result.pageSize,
     });
+  }
+
+  /** 止盈止损 / 条件单 */
+  static async placeAlgoOrder(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const body = ctx.request.body as {
+      symbol?: string;
+      side?: "buy" | "sell";
+      algoType?: "stop_loss" | "take_profit";
+      triggerPrice?: number;
+      orderPrice?: number | null;
+      quantity?: number;
+    };
+    const triggerPrice = Number(body.triggerPrice);
+    const quantity = Number(body.quantity);
+    if (!body.symbol || !body.side || !body.algoType || !(triggerPrice > 0) || !(quantity > 0)) {
+      throw new BadRequestError("参数无效");
+    }
+    const data = await SpotAlgoOrderService.place({
+      userId,
+      symbol: body.symbol.toUpperCase(),
+      side: body.side,
+      algoType: body.algoType,
+      triggerPrice,
+      orderPrice: body.orderPrice ?? null,
+      quantity,
+    });
+    ctx.sendSuccess(data, { message: "条件单已提交" });
+  }
+
+  static async listAlgoOrders(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const symbol = ctx.query.symbol ? String(ctx.query.symbol).toUpperCase() : undefined;
+    const data = await SpotAlgoOrderService.listActive(userId, symbol);
+    ctx.sendSuccess({ data });
+  }
+
+  static async algoHistory(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const page = Number(ctx.query.page ?? 1);
+    const pageSize = Number(ctx.query.pageSize ?? 50);
+    const data = await SpotAlgoOrderService.listHistory(userId, page, pageSize);
+    ctx.sendSuccess(data);
+  }
+
+  static async cancelAlgoOrder(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const body = ctx.request.body as { algoNo?: string };
+    if (!body.algoNo) throw new BadRequestError("参数无效");
+    const data = await SpotAlgoOrderService.cancel(userId, body.algoNo);
+    ctx.sendSuccess(data, { message: "已撤销条件单" });
   }
 }

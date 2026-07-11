@@ -55,6 +55,7 @@ export class AdminFinanceService {
         {
           userId: targetUserId,
           currency: cur,
+          accountType: "funding",
           availableDelta: value,
           ledgerType: "deposit",
           ledgerAmount: value,
@@ -106,6 +107,7 @@ export class AdminFinanceService {
         {
           userId: targetUserId,
           currency: cur,
+          accountType: "funding",
           availableDelta: -value,
           ledgerType: "withdraw",
           ledgerAmount: -value,

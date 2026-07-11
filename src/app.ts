@@ -7,6 +7,7 @@ import {
   apiResponseMiddleware,
 } from "@/middlewares/api-response.middleware";
 import { authMiddleware } from "@/middlewares/auth.middleware";
+import { apiKeyAuthMiddleware } from "@/middlewares/api-key.middleware";
 import { errorMiddleware } from "@/middlewares/error.middleware";
 import {
   loggerMiddleware,
@@ -44,6 +45,7 @@ export function createApp() {
   app.use(responseTimeMiddleware);
   app.use(uploadsMiddleware);
   app.use(marketRateLimitMiddleware);
+  app.use(apiKeyAuthMiddleware);
   app.use(authMiddleware);
 
   app.use(healthRouter.routes());

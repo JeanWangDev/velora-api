@@ -46,6 +46,17 @@ export type SearchSymbolsQuery = z.infer<typeof searchSymbolsQuerySchema>;
 export type SymbolInfoQuery = z.infer<typeof symbolInfoQuerySchema>;
 export type TickerQuery = z.infer<typeof tickerQuerySchema>;
 
+export const depthQuerySchema = z.object({
+  exchange: z.string().min(1).optional(),
+  symbol: z
+    .string()
+    .min(1, "symbol is required")
+    .transform((value) => value.toUpperCase()),
+  limit: z.coerce.number().int().min(5).max(100).optional().default(50),
+});
+
+export type DepthQuery = z.infer<typeof depthQuerySchema>;
+
 export const priceLevelsQuerySchema = z.object({
   exchange: z.string().min(1).optional(),
   symbol: z

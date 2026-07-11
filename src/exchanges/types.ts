@@ -3,6 +3,7 @@ import type {
   IExchangeMeta,
   IKline,
   IKlineTick,
+  IOrderBookDepth,
   ISymbolInfo,
   ISymbolSummary,
   ITicker24h,
@@ -42,6 +43,7 @@ export interface IExchangeRest {
   getServerTime(): Promise<number>;
   getKlines(params: IGetKlinesParams): Promise<IKline[]>;
   getTicker24h(symbol: string): Promise<ITicker24h>;
+  getDepth(symbol: string, limit?: number): Promise<IOrderBookDepth>;
   searchSymbols(params: ISearchSymbolsParams): Promise<ISymbolSummary[]>;
   getSymbolInfo(symbol: string): Promise<ISymbolInfo>;
 }

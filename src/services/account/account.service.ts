@@ -14,9 +14,12 @@ export function roundAmount(value: number): number {
 
 export interface BalanceView {
   currency: string;
+  accountType: AccountType;
   available: number;
   frozen: number;
 }
+
+export type AccountType = "funding" | "trading" | "futures";
 
 export interface LedgerView {
   id: number;
@@ -31,6 +34,7 @@ export interface LedgerView {
 interface AdjustParams {
   userId: number;
   currency: string;
+  accountType?: AccountType;
   /** 可用余额变动（正加负减） */
   availableDelta?: number;
   /** 冻结余额变动（正加负减） */
@@ -60,15 +64,24 @@ export class AccountService {
     return sequelize.transaction(fn);
   }
 
-  /** 查询用户全部余额 */
-  static async getBalances(userId: number): Promise<BalanceView[]> {
+  /** 查询用户全部余额（可按账户类型筛选） */
+  static async getBalances(
+    userId: number,
+    accountType?: AccountType,
+  ): Promise<BalanceView[]> {
     assertDbReady();
+    const where: Record<string, unknown> = { userId };
+    if (accountType) where.accountType = accountType;
     const rows = await AccountBalance.findAll({
-      where: { userId },
-      order: [["currency", "ASC"]],
+      where,
+      order: [
+        ["accountType", "ASC"],
+        ["currency", "ASC"],
+      ],
     });
     return rows.map((r) => ({
       currency: r.currency,
+      accountType: (r.accountType ?? "trading") as AccountType,
       available: Number(r.available),
       frozen: Number(r.frozen),
     }));
@@ -116,19 +129,20 @@ export class AccountService {
     userId: number,
     currency: string,
     tx: Transaction,
+    accountType: AccountType = "trading",
   ): Promise<AccountBalance> {
     let row = await AccountBalance.findOne({
-      where: { userId, currency },
+      where: { userId, currency, accountType },
       transaction: tx,
       lock: tx.LOCK.UPDATE,
     });
     if (!row) {
       await AccountBalance.create(
-        { userId, currency, available: 0, frozen: 0 },
+        { userId, currency, accountType, available: 0, frozen: 0 },
         { transaction: tx },
       );
       row = await AccountBalance.findOne({
-        where: { userId, currency },
+        where: { userId, currency, accountType },
         transaction: tx,
         lock: tx.LOCK.UPDATE,
       });
@@ -138,7 +152,8 @@ export class AccountService {
 
   /** 事务内的原子余额调整（可附带流水） */
   static async adjust(params: AdjustParams, tx: Transaction): Promise<number> {
-    const row = await this.lockBalance(params.userId, params.currency, tx);
+    const accountType = params.accountType ?? "trading";
+    const row = await this.lockBalance(params.userId, params.currency, tx, accountType);
 
     const nextAvailable = roundAmount(
       Number(row.available) + (params.availableDelta ?? 0),
@@ -178,9 +193,10 @@ export class AccountService {
     userId: number,
     currency: string,
     tx?: Transaction,
+    accountType: AccountType = "trading",
   ): Promise<number> {
     const row = await AccountBalance.findOne({
-      where: { userId, currency },
+      where: { userId, currency, accountType },
       transaction: tx,
     });
     return row ? Number(row.available) : 0;
@@ -203,6 +219,7 @@ export class AccountService {
         {
           userId,
           currency: currency.toUpperCase(),
+          accountType: "funding",
           availableDelta: value,
           ledgerType: "deposit",
           ledgerAmount: value,

@@ -6,6 +6,7 @@ import {
 } from "@/services/market/price-levels.service";
 import type {
   KlinesQuery,
+  DepthQuery,
   PriceLevelsQuery,
   SearchSymbolsQuery,
   SymbolInfoQuery,
@@ -90,6 +91,18 @@ class MarketService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Upstream ticker failed";
+      throw new UpstreamServiceError(message);
+    }
+  }
+
+  async getDepth(query: DepthQuery) {
+    const exchange = getExchange(query.exchange);
+
+    try {
+      return await exchange.rest.getDepth(query.symbol, query.limit);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Upstream depth failed";
       throw new UpstreamServiceError(message);
     }
   }

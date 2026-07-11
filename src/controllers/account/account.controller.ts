@@ -17,7 +17,12 @@ export class AccountController {
   /** 当前用户余额 */
   static async balances(ctx: Context) {
     const userId = resolveUserId(ctx);
-    const balances = await AccountService.getBalances(userId);
+    const accountType = ctx.query.accountType as
+      | "funding"
+      | "trading"
+      | "futures"
+      | undefined;
+    const balances = await AccountService.getBalances(userId, accountType);
     ctx.sendSuccess({ balances });
   }
 

@@ -1,5 +1,6 @@
 import { config } from "@/config";
 import { SpotOrderService } from "@/services/spot/spot-order.service";
+import { SpotAlgoOrderService } from "@/services/spot/spot-algo-order.service";
 
 const INTERVAL_MS = 3_000;
 let timer: NodeJS.Timeout | null = null;
@@ -14,6 +15,7 @@ export function startSpotMatchingWorker() {
     running = true;
     try {
       await SpotOrderService.matchOpenOrders();
+      await SpotAlgoOrderService.processTriggers();
     } catch (err) {
       console.error("[spot-matching] tick failed:", (err as Error).message);
     } finally {

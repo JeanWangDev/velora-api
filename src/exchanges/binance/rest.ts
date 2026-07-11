@@ -8,6 +8,7 @@ import {
 import type {
   CanonicalInterval,
   IKline,
+  IOrderBookDepth,
   ISymbolInfo,
   ISymbolSummary,
   ITicker24h,
@@ -215,6 +216,30 @@ export const binanceRest: IExchangeRest = {
       `${config.binanceRestBaseUrl}/api/v3/ticker/24hr?symbol=${encodeURIComponent(target)}`,
     );
     return mapBinanceTicker24h(row);
+  },
+
+  async getDepth(symbol: string, limit = 50): Promise<IOrderBookDepth> {
+    const target = symbol.trim().toUpperCase();
+    const capped = Math.min(Math.max(limit, 5), 100);
+    const row = await fetchJson<{
+      lastUpdateId: number;
+      bids: [string, string][];
+      asks: [string, string][];
+    }>(
+      `${config.binanceRestBaseUrl}/api/v3/depth?symbol=${encodeURIComponent(target)}&limit=${capped}`,
+    );
+    return {
+      symbol: target,
+      lastUpdateId: row.lastUpdateId,
+      bids: row.bids.map(([price, qty]) => ({
+        price: Number(price),
+        quantity: Number(qty),
+      })),
+      asks: row.asks.map(([price, qty]) => ({
+        price: Number(price),
+        quantity: Number(qty),
+      })),
+    };
   },
 
   async searchSymbols(params: ISearchSymbolsParams): Promise<ISymbolSummary[]> {

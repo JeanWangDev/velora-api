@@ -10,6 +10,7 @@ import { BadRequestError } from "@/errors/app-error";
 import { MarketBriefService, MarketService, TradingSymbolService } from "@/services/market";
 import {
   formatZodError,
+  depthQuerySchema,
   klinesQuerySchema,
   marketBriefQuerySchema,
   priceLevelsQuerySchema,
@@ -80,6 +81,17 @@ export class MarketController {
     const ticker = await MarketService.getTicker24h(parsed.data);
     ctx.set("Cache-Control", "public, max-age=2, s-maxage=2");
     ctx.sendSuccess(toTicker24hDto(ticker));
+  }
+
+  static async getDepth(ctx: Context) {
+    const parsed = depthQuerySchema.safeParse(ctx.query);
+    if (!parsed.success) {
+      throw new BadRequestError(formatZodError(parsed.error));
+    }
+
+    const depth = await MarketService.getDepth(parsed.data);
+    ctx.set("Cache-Control", "public, max-age=1, s-maxage=1");
+    ctx.sendSuccess(depth);
   }
 
   static async getPriceLevels(ctx: Context) {

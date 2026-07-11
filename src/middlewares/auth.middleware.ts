@@ -26,6 +26,10 @@ const PUBLIC_AUTH_ROUTES = new Set([
   "POST /api/v1/chart-templates/track",
   "GET /api/v1/billing/plans",
   "GET /api/v1/strategies",
+  "GET /api/v1/spot/symbols",
+  "GET /api/v1/spot/orderbook",
+  "GET /api/v1/futures/symbols",
+  "GET /api/v1/futures/mark-prices",
 ]);
 
 function isAuthExempt(ctx: Context): boolean {

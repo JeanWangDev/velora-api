@@ -89,3 +89,16 @@ export interface ITicker24h {
   /** Quote-asset volume over the last 24h. */
   quoteVolume: number;
 }
+
+/** L2 order book snapshot (price-aggregated levels). */
+export interface IOrderBookLevel {
+  price: number;
+  quantity: number;
+}
+
+export interface IOrderBookDepth {
+  symbol: string;
+  bids: IOrderBookLevel[];
+  asks: IOrderBookLevel[];
+  lastUpdateId: number;
+}
