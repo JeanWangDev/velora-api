@@ -5,6 +5,7 @@ import { createIntervalMapper } from "@/exchanges/intervals";
 import type {
   IExchangeWs,
   IStreamHandle,
+  DepthStreamHandler,
   KlineStreamHandler,
   TickerStreamHandler,
   TradeStreamHandler,
@@ -217,6 +218,10 @@ function tickerStreamKey(symbol: string): string {
   return `${symbol.toLowerCase()}@ticker`;
 }
 
+function depthStreamKey(symbol: string): string {
+  return `${symbol.toLowerCase()}@depth20@100ms`;
+}
+
 export const binanceWs: IExchangeWs = {
   subscribeKline(
     symbol: string,
@@ -243,6 +248,30 @@ export const binanceWs: IExchangeWs = {
       const evt = event as BinanceTicker24hEvent;
       if (evt?.e !== "24hrTicker") return;
       onTicker(mapBinanceTicker24hEvent(evt));
+    });
+  },
+
+  subscribeDepth(symbol: string, onDepth: DepthStreamHandler): IStreamHandle {
+    const target = symbol.trim().toUpperCase();
+    return attachUpstream(depthStreamKey(target), (event) => {
+      const evt = event as {
+        lastUpdateId?: number;
+        bids?: [string, string][];
+        asks?: [string, string][];
+      };
+      if (!evt?.bids || !evt?.asks) return;
+      onDepth({
+        symbol: target,
+        lastUpdateId: Number(evt.lastUpdateId ?? 0),
+        bids: evt.bids.map(([price, qty]) => ({
+          price: Number(price),
+          quantity: Number(qty),
+        })),
+        asks: evt.asks.map(([price, qty]) => ({
+          price: Number(price),
+          quantity: Number(qty),
+        })),
+      });
     });
   },
 };

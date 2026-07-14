@@ -77,7 +77,11 @@ VALUES
   ('SOL-USDT', 'SOL', 'USDT', 'Solana', 3, 3, 0.01, 3, 1),
   ('BNB-USDT', 'BNB', 'USDT', 'BNB', 2, 4, 0.01, 4, 1),
   ('XRP-USDT', 'XRP', 'USDT', 'XRP', 4, 1, 1, 5, 1),
-  ('DOGE-USDT', 'DOGE', 'USDT', 'Dogecoin', 5, 0, 10, 6, 1)
+  ('DOGE-USDT', 'DOGE', 'USDT', 'Dogecoin', 5, 0, 10, 6, 1),
+  ('ADA-USDT', 'ADA', 'USDT', 'Cardano', 4, 1, 1, 7, 1),
+  ('AVAX-USDT', 'AVAX', 'USDT', 'Avalanche', 2, 3, 0.01, 8, 1),
+  ('LINK-USDT', 'LINK', 'USDT', 'Chainlink', 3, 2, 0.01, 9, 1),
+  ('DOT-USDT', 'DOT', 'USDT', 'Polkadot', 3, 2, 0.01, 10, 1)
 ON DUPLICATE KEY UPDATE
   f_base = VALUES(f_base),
   f_quote = VALUES(f_quote),

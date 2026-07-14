@@ -9,7 +9,8 @@ import {
   type AccountType,
 } from "@/services/account/account.service";
 import { NotificationService } from "@/services/notification/notification.service";
-
+import { CapitalRiskService } from "@/services/risk/capital-risk.service";
+import { AmlService } from "@/services/platform/compliance.service";
 import { DEPOSIT_CHAINS, WITHDRAW_FEE_RATES } from "@/constants/exchange";
 
 function genNo(prefix: string) {
@@ -78,6 +79,21 @@ export class WalletService {
 
     if (!(amount > 0)) throw new BadRequestError("提现金额必须大于 0");
     if (!input.address?.trim()) throw new BadRequestError("请填写提现地址");
+
+    await CapitalRiskService.assertWithdrawAllowed({
+      userId: input.userId,
+      currency: cur,
+      amount,
+      address: input.address.trim(),
+    });
+
+    await AmlService.checkWithdraw({
+      userId: input.userId,
+      currency: cur,
+      amount,
+      address: input.address.trim(),
+      chain: input.chain,
+    });
 
     const withdrawNo = genNo("WD");
 
@@ -207,7 +223,7 @@ export class TransferService {
           currency: cur,
           accountType: input.fromAccount,
           availableDelta: -amount,
-          ledgerType: "withdraw",
+          ledgerType: "transfer",
           ledgerAmount: -amount,
           refId: transferNo,
         },
@@ -219,7 +235,7 @@ export class TransferService {
           currency: cur,
           accountType: input.toAccount,
           availableDelta: amount,
-          ledgerType: "deposit",
+          ledgerType: "transfer",
           ledgerAmount: amount,
           refId: transferNo,
         },

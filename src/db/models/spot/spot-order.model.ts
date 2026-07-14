@@ -3,6 +3,7 @@ import { getSequelize } from "@/db/connection";
 
 export type SpotOrderSide = "buy" | "sell";
 export type SpotOrderType = "limit" | "market";
+export type SpotTimeInForce = "gtc" | "post_only" | "ioc" | "fok";
 export type SpotOrderStatus = "open" | "partial" | "filled" | "cancelled";
 
 export class SpotOrder extends Model {
@@ -12,6 +13,7 @@ export class SpotOrder extends Model {
   declare symbol: string;
   declare side: SpotOrderSide;
   declare type: SpotOrderType;
+  declare timeInForce: SpotTimeInForce;
   declare price: string | null;
   declare quantity: string;
   declare filledQuantity: string;
@@ -38,6 +40,12 @@ export async function initSpotOrderModel() {
       symbol: { type: DataTypes.STRING(32), field: "f_symbol", allowNull: false },
       side: { type: DataTypes.STRING(8), field: "f_side", allowNull: false },
       type: { type: DataTypes.STRING(8), field: "f_type", allowNull: false },
+      timeInForce: {
+        type: DataTypes.STRING(16),
+        field: "f_time_in_force",
+        allowNull: false,
+        defaultValue: "gtc",
+      },
       price: { type: DataTypes.DECIMAL(36, 12), field: "f_price", allowNull: true },
       quantity: { type: DataTypes.DECIMAL(36, 12), field: "f_quantity", allowNull: false },
       filledQuantity: {

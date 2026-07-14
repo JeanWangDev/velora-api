@@ -1,7 +1,7 @@
 /** 系统流动性提供账户（LP），用于市价单与穿越限价的外部流动性兜底 */
 export const SYSTEM_LP_USER_ID = 1;
 
-export const ACCOUNT_TYPES = ["funding", "trading", "futures"] as const;
+export const ACCOUNT_TYPES = ["funding", "trading", "futures", "earn", "margin"] as const;
 export type AccountType = (typeof ACCOUNT_TYPES)[number];
 
 export const WITHDRAW_FEE_RATES: Record<string, { rate: number; min: number }> = {

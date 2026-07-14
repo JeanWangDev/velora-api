@@ -1,7 +1,7 @@
 import { DataTypes, Model } from "sequelize";
 import { getSequelize } from "@/db/connection";
 
-export type AccountType = "funding" | "trading" | "futures";
+export type AccountType = "funding" | "trading" | "futures" | "earn" | "margin";
 
 export class AccountBalance extends Model {
   declare id: number;

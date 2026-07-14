@@ -31,3 +31,9 @@ export interface AuthState {
   verified?: boolean;
   devBypass?: boolean;
 }
+
+export interface LoginMeta {
+  ip: string;
+  userAgent: string;
+  deviceLabel: string;
+}

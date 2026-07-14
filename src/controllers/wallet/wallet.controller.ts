@@ -78,8 +78,8 @@ export class WalletController {
     const schema = z.object({
       currency: z.string().min(1),
       amount: z.number().positive(),
-      fromAccount: z.enum(["funding", "trading", "futures"]),
-      toAccount: z.enum(["funding", "trading", "futures"]),
+      fromAccount: z.enum(["funding", "trading", "futures", "earn", "margin"]),
+      toAccount: z.enum(["funding", "trading", "futures", "earn", "margin"]),
     });
     const parsed = schema.safeParse(ctx.request.body);
     if (!parsed.success) throw new BadRequestError("参数无效");

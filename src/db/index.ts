@@ -114,6 +114,7 @@ export {
   SpotTrade,
   type SpotOrderSide,
   type SpotOrderType,
+  type SpotTimeInForce,
   type SpotOrderStatus,
 } from "@/db/models/spot";
 export { AdminFinanceOp, type AdminFinanceOpType } from "@/db/models/admin";

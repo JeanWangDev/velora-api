@@ -56,6 +56,12 @@ export const loginBodySchema = z.object({
     .min(1, "账号不能为空")
     .transform((v) => v.toLowerCase()),
   password: z.string().min(1, "密码不能为空"),
+  totpCode: z.string().trim().regex(/^\d{6}$/).optional(),
+});
+
+export const loginTotpBodySchema = z.object({
+  totpToken: z.string().min(1),
+  code: z.string().trim().regex(/^\d{6}$/, "请输入 6 位验证码"),
 });
 
 export const loginVerifyBodySchema = z.object({

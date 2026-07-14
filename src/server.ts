@@ -11,8 +11,10 @@ import { warmUpstream } from "@/utils/http-client";
 import { startBinanceLiquidationWorker } from "@/ingest/binance-liquidation.worker";
 import { startSpotMatchingWorker } from "@/services/spot/spot-matching.worker";
 import { startFuturesWorker } from "@/services/futures/futures.worker";
+import { startPlatformWorker } from "@/services/platform/platform.worker";
 import { createEventsWsServer } from "@/ws/events-hub";
 import { createMarketWsServer } from "@/ws/market-hub";
+import { createPrivateWsServer } from "@/ws/private-hub";
 import { attachWsUpgradeRouter } from "@/ws/upgrade-router";
 import { verifyEventsWsUpgrade } from "@/ws/ws-auth";
 
@@ -56,6 +58,7 @@ async function startServer() {
 
   const marketWss = createMarketWsServer();
   const eventsWss = createEventsWsServer();
+  const privateWss = createPrivateWsServer();
   attachWsUpgradeRouter(httpServer, [
     { path: config.marketWsPath, wss: marketWss },
     {
@@ -63,6 +66,7 @@ async function startServer() {
       wss: eventsWss,
       verifyUpgrade: verifyEventsWsUpgrade,
     },
+    { path: config.privateWsPath, wss: privateWss },
   ]);
 
   if (config.db.enabled && config.liquidationWorkerEnabled) {
@@ -72,6 +76,7 @@ async function startServer() {
   if (config.db.enabled) {
     startSpotMatchingWorker();
     startFuturesWorker();
+    startPlatformWorker();
   }
 
   httpServer.listen(config.port, "0.0.0.0", () => {

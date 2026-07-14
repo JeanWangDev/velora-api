@@ -30,6 +30,7 @@ const PUBLIC_AUTH_ROUTES = new Set([
   "GET /api/v1/spot/orderbook",
   "GET /api/v1/futures/symbols",
   "GET /api/v1/futures/mark-prices",
+  "GET /api/v1/announcements",
 ]);
 
 function isAuthExempt(ctx: Context): boolean {
@@ -44,6 +45,10 @@ function isAuthExempt(ctx: Context): boolean {
   }
 
   if (ctx.method === "GET" && /^\/api\/v1\/strategies\/[^/]+\/stats$/.test(ctx.path)) {
+    return true;
+  }
+
+  if (ctx.method === "GET" && /^\/api\/v1\/announcements\/[^/]+$/.test(ctx.path)) {
     return true;
   }
 

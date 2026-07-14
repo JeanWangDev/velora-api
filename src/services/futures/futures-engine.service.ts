@@ -378,6 +378,87 @@ export class FuturesEngineService {
 
   /** 强平：未实现亏损触及维持保证金 */
   static async checkLiquidations(): Promise<number> {
+    let liquidated = await this.checkCrossLiquidationsInternal();
+    liquidated += await this.checkIsolatedLiquidations();
+    return liquidated;
+  }
+
+  private static async checkCrossLiquidationsInternal(): Promise<number> {
+    const sequelize = await getSequelize();
+    if (!sequelize) return 0;
+
+    const users = await sequelize.query<{ userId: number }>(
+      `SELECT DISTINCT f_user_id AS userId FROM t_futures_position
+       WHERE f_status = 'open' AND f_margin_mode = 'cross'`,
+      { type: QueryTypes.SELECT },
+    );
+
+    let liquidated = 0;
+    for (const { userId } of users) {
+      const positions = await sequelize.query<{
+        id: number;
+        symbol: string;
+        side: string;
+        quantity: string;
+        upnl: string;
+        leverage: number;
+        marginMode: string;
+      }>(
+        `SELECT f_id AS id, f_symbol AS symbol, f_side AS side, f_quantity AS quantity,
+                f_unrealized_pnl AS upnl, f_leverage AS leverage, f_margin_mode AS marginMode
+         FROM t_futures_position WHERE f_user_id = :userId AND f_status = 'open' AND f_margin_mode = 'cross'`,
+        { replacements: { userId }, type: QueryTypes.SELECT },
+      );
+      if (positions.length === 0) continue;
+
+      const futuresBal = await AccountService.getAvailable(userId, "USDT", undefined, "futures");
+      const upnl = positions.reduce((s, p) => s + Number(p.upnl), 0);
+      const equity = roundAmount(futuresBal + upnl);
+
+      let maintenance = 0;
+      for (const p of positions) {
+        const mark = await this.getMarkPrice(p.symbol);
+        maintenance += ((mark * Number(p.quantity)) / p.leverage) * 0.5;
+      }
+      if (equity >= roundAmount(maintenance)) continue;
+
+      const worst = [...positions].sort((a, b) => Number(a.upnl) - Number(b.upnl))[0];
+      const mark = await this.getMarkPrice(worst.symbol);
+      try {
+        await AccountService.runInTransaction(async (tx) => {
+          const fakeOrder: FuturesOrderRow = {
+            id: 0,
+            orderNo: `LIQ${Date.now()}`,
+            userId,
+            symbol: worst.symbol,
+            side: worst.side === "long" ? "sell" : "buy",
+            posSide: worst.side as "long" | "short",
+            type: "market",
+            price: String(mark),
+            quantity: worst.quantity,
+            filledQuantity: "0",
+            leverage: worst.leverage,
+            marginMode: "cross",
+            reduceOnly: 1,
+            status: "open",
+          };
+          await this.reducePosition(fakeOrder, mark, Number(worst.quantity), tx);
+        });
+        await NotificationService.create(userId, {
+          type: "risk",
+          title: "全仓强平",
+          body: `${worst.symbol} 全仓模式已触发强平 @ ${mark}`,
+          refId: String(worst.id),
+        });
+        liquidated += 1;
+      } catch (err) {
+        console.error("[futures-engine] cross liquidation failed:", (err as Error).message);
+      }
+    }
+    return liquidated;
+  }
+
+  private static async checkIsolatedLiquidations(): Promise<number> {
     const sequelize = await getSequelize();
     if (!sequelize) return 0;
 
@@ -396,7 +477,8 @@ export class FuturesEngineService {
       `SELECT f_id AS id, f_user_id AS userId, f_symbol AS symbol, f_side AS side,
               f_margin_mode AS marginMode, f_leverage AS leverage, f_quantity AS quantity,
               f_entry_price AS entryPrice, f_margin AS margin, f_liquidation_price AS liquidationPrice
-       FROM t_futures_position WHERE f_status = 'open' AND f_quantity > 0`,
+       FROM t_futures_position WHERE f_status = 'open' AND f_quantity > 0
+         AND f_margin_mode = 'isolated'`,
       { type: QueryTypes.SELECT },
     );
 

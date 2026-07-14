@@ -11,16 +11,37 @@ import { SpotSymbolService } from "@/services/spot/spot-symbol.service";
 import { FuturesSymbolService } from "@/services/futures/futures-symbol.service";
 import { FuturesEngineService } from "@/services/futures/futures-engine.service";
 import { NotificationService } from "@/services/notification/notification.service";
+import { pushAccountRefresh, pushOrderRefresh } from "@/ws/private-broadcast";
 
 function genNo(prefix: string) {
   return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
 }
 
 export class RiskService {
+  private static async resolveRoleKey(userId: number): Promise<string> {
+    const sequelize = await getSequelize();
+    if (!sequelize) return "normal_user";
+
+    const rows = await sequelize.query<{ roleKey: string }>(
+      `SELECT r.f_role_key AS roleKey
+       FROM t_user u
+       JOIN t_role r ON r.f_id = u.f_role_id
+       WHERE u.f_id = :userId LIMIT 1`,
+      { replacements: { userId }, type: QueryTypes.SELECT },
+    );
+    const roleKey = rows[0]?.roleKey ?? "normal_user";
+    const known = await sequelize.query<{ roleKey: string }>(
+      `SELECT f_role_key AS roleKey FROM t_risk_limit WHERE f_role_key = :roleKey LIMIT 1`,
+      { replacements: { roleKey }, type: QueryTypes.SELECT },
+    );
+    return known[0]?.roleKey ?? "normal_user";
+  }
+
   static async checkSpotOrder(userId: number, symbol: string, quantity: number, price: number) {
     const sequelize = await getSequelize();
     if (!sequelize) return;
 
+    const roleKey = await this.resolveRoleKey(userId);
     const last = await SpotSymbolService.getLastPrice(symbol);
     const notional = roundAmount(quantity * (price || last));
 
@@ -31,8 +52,8 @@ export class RiskService {
     }>(
       `SELECT f_single_order_usd AS singleOrderUsd, f_orders_per_minute AS ordersPerMinute,
               f_daily_volume_usd AS dailyVolumeUsd
-       FROM t_risk_limit WHERE f_role_key = 'normal_user' LIMIT 1`,
-      { type: QueryTypes.SELECT },
+       FROM t_risk_limit WHERE f_role_key = :roleKey LIMIT 1`,
+      { replacements: { roleKey }, type: QueryTypes.SELECT },
     );
     const limit = limits[0];
     if (limit && notional > Number(limit.singleOrderUsd)) {
@@ -67,11 +88,12 @@ export class RiskService {
     const sequelize = await getSequelize();
     if (!sequelize) return;
 
+    const roleKey = await this.resolveRoleKey(userId);
     const notional = roundAmount(quantity * price);
     const limits = await sequelize.query<{ singleOrderUsd: string }>(
       `SELECT f_single_order_usd AS singleOrderUsd FROM t_risk_limit
-       WHERE f_role_key = 'normal_user' LIMIT 1`,
-      { type: QueryTypes.SELECT },
+       WHERE f_role_key = :roleKey LIMIT 1`,
+      { replacements: { roleKey }, type: QueryTypes.SELECT },
     );
     const limit = limits[0];
     if (limit && notional > Number(limit.singleOrderUsd)) {
@@ -192,6 +214,8 @@ export class FuturesOrderService {
     }
 
     const final = await this.getOrderByNo(input.userId, orderNo);
+    pushOrderRefresh(input.userId, "futures");
+    pushAccountRefresh(input.userId);
     return {
       orderNo,
       status: (final?.status ?? "open") as string,

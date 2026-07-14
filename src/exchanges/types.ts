@@ -24,11 +24,14 @@ export interface IGetKlinesParams {
 export interface ISearchSymbolsParams {
   query: string;
   limit?: number;
+  /** 计价币过滤，如 USDT */
+  quoteAsset?: string;
 }
 
 export type KlineStreamHandler = (tick: IKlineTick) => void;
 export type TradeStreamHandler = (trade: ITradeTick) => void;
 export type TickerStreamHandler = (ticker: ITicker24h) => void;
+export type DepthStreamHandler = (depth: IOrderBookDepth) => void;
 
 /**
  * Handle returned by `subscribe*`. Calling `close()` removes one logical
@@ -43,7 +46,10 @@ export interface IExchangeRest {
   getServerTime(): Promise<number>;
   getKlines(params: IGetKlinesParams): Promise<IKline[]>;
   getTicker24h(symbol: string): Promise<ITicker24h>;
+  /** 全市场 24h ticker，可按计价币过滤 */
+  getTickers24h(quoteAsset?: string): Promise<ITicker24h[]>;
   getDepth(symbol: string, limit?: number): Promise<IOrderBookDepth>;
+  getAggTrades(symbol: string, limit?: number): Promise<ITradeTick[]>;
   searchSymbols(params: ISearchSymbolsParams): Promise<ISymbolSummary[]>;
   getSymbolInfo(symbol: string): Promise<ISymbolInfo>;
 }
@@ -63,6 +69,9 @@ export interface IExchangeWs {
 
   /** Rolling 24h ticker stats (~1s cadence on Binance). */
   subscribeTicker(symbol: string, onTicker: TickerStreamHandler): IStreamHandle;
+
+  /** L2 depth snapshot stream (e.g. depth20@100ms on Binance). */
+  subscribeDepth(symbol: string, onDepth: DepthStreamHandler): IStreamHandle;
 }
 
 export interface IExchangeAdapter {

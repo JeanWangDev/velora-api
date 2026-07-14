@@ -4,6 +4,7 @@ export {
   initSpotOrderModel,
   type SpotOrderSide,
   type SpotOrderType,
+  type SpotTimeInForce,
   type SpotOrderStatus,
 } from "./spot-order.model";
 export { SpotTrade, initSpotTradeModel } from "./spot-trade.model";

@@ -11,7 +11,10 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/utils/password";
-import { signAccessToken, signLoginChallenge, verifyLoginChallenge } from "@/utils/jwt";
+import { signAccessToken, signLoginChallenge, signTotpChallenge, verifyLoginChallenge, verifyTotpChallenge } from "@/utils/jwt";
+import { SecurityService } from "@/services/auth/security.service";
+import { LoginSessionService } from "@/services/auth/login-session.service";
+import type { LoginMeta } from "@/types/auth";
 import { DEFAULT_REGISTER_ROLE_KEY } from "@/constants/roles";
 import {
   EMAIL_PURPOSE_LOGIN,
@@ -164,7 +167,7 @@ export class AuthService {
     return toSession(profile);
   }
 
-  static async login(body: LoginBody) {
+  static async login(body: LoginBody, meta?: LoginMeta) {
     assertDbReady();
 
     const user = await findUserByEmailWithRole(body.email);
@@ -179,11 +182,43 @@ export class AuthService {
 
     const ok = await verifyPassword(body.password, user.passwordHash);
     if (!ok) {
+      if (meta) {
+        await LoginSessionService.record({
+          userId: user.id,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+          deviceLabel: meta.deviceLabel,
+          success: false,
+        });
+      }
       throw new UnauthorizedError("密码错误");
+    }
+
+    const totpEnabled = await SecurityService.is2faEnabled(user.id);
+    if (totpEnabled) {
+      if (!body.totpCode) {
+        return {
+          requireTotp: true as const,
+          totpToken: signTotpChallenge(user.id),
+        };
+      }
+      const totpOk = await SecurityService.verify2faCode(user.id, body.totpCode);
+      if (!totpOk) {
+        throw new UnauthorizedError("两步验证码错误");
+      }
     }
 
     user.lastLoginTime = new Date();
     await user.save();
+
+    if (meta) {
+      await LoginSessionService.record({
+        userId: user.id,
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        deviceLabel: meta.deviceLabel,
+      });
+    }
 
     const profile: AuthUserProfile = {
       id: user.id,
@@ -192,6 +227,45 @@ export class AuthService {
       roleKey: user.role!.roleKey,
       roleName: user.role!.roleName,
       roleLevel: user.role!.roleLevel,
+    };
+
+    return toSession(profile);
+  }
+
+  static async loginTotp(totpToken: string, code: string, meta?: LoginMeta) {
+    assertDbReady();
+    const userId = verifyTotpChallenge(totpToken);
+    const ok = await SecurityService.verify2faCode(userId, code);
+    if (!ok) {
+      throw new UnauthorizedError("两步验证码错误");
+    }
+
+    const user = await User.findByPk(userId, {
+      include: [{ model: Role, as: "role", required: true }],
+    });
+    if (!user || user.status !== 1 || !user.role) {
+      throw new UnauthorizedError("登录验证已失效，请重新登录");
+    }
+
+    user.lastLoginTime = new Date();
+    await user.save();
+
+    if (meta) {
+      await LoginSessionService.record({
+        userId: user.id,
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        deviceLabel: meta.deviceLabel,
+      });
+    }
+
+    const profile: AuthUserProfile = {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      roleKey: user.role.roleKey,
+      roleName: user.role.roleName,
+      roleLevel: user.role.roleLevel,
     };
 
     return toSession(profile);
@@ -232,7 +306,7 @@ export class AuthService {
   }
 
   /** 登录第二步：校验验证码并签发会话 */
-  static async loginVerify(body: { challengeToken: string; code: string }) {
+  static async loginVerify(body: { challengeToken: string; code: string }, meta?: LoginMeta) {
     assertDbReady();
 
     const { userId, email } = verifyLoginChallenge(body.challengeToken);
@@ -253,6 +327,15 @@ export class AuthService {
 
     user.lastLoginTime = new Date();
     await user.save();
+
+    if (meta) {
+      await LoginSessionService.record({
+        userId: user.id,
+        ip: meta.ip,
+        userAgent: meta.userAgent,
+        deviceLabel: meta.deviceLabel,
+      });
+    }
 
     const profile: AuthUserProfile = {
       id: user.id,

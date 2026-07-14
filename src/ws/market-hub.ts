@@ -58,10 +58,19 @@ const subscribeTickerSchema = z.object({
   id: z.string().optional(),
 });
 
+const subscribeDepthSchema = z.object({
+  op: z.literal("subscribe"),
+  channel: z.literal("depth"),
+  exchange: z.string().optional(),
+  symbol: z.string().min(1),
+  id: z.string().optional(),
+});
+
 const subscribeSchema = z.discriminatedUnion("channel", [
   subscribeKlineSchema,
   subscribeTradesSchema,
   subscribeTickerSchema,
+  subscribeDepthSchema,
 ]);
 
 const unsubscribeSchema = z.object({
@@ -78,7 +87,7 @@ const pingSchema = z.object({
 const inboundSchema = z.union([subscribeSchema, unsubscribeSchema, pingSchema]);
 
 interface ClientSubscription {
-  channel: "kline" | "aggTrade" | "ticker";
+  channel: "kline" | "aggTrade" | "ticker" | "depth";
   exchange: string;
   symbol: string;
   interval?: string;
@@ -265,19 +274,49 @@ export function createMarketWsServer(): WebSocketServer {
           return;
         }
 
-        // parsed.channel === "ticker"
-        const handle = adapter.ws.subscribeTicker(symbol, (ticker) => {
+        if (parsed.channel === "ticker") {
+          const handle = adapter.ws.subscribeTicker(symbol, (ticker) => {
+            safeSend(socket, {
+              type: "ticker",
+              subscriptionId,
+              exchange: adapter.meta.id,
+              symbol,
+              data: ticker,
+            });
+          });
+
+          subscriptions.set(subscriptionId, {
+            channel: "ticker",
+            exchange: adapter.meta.id,
+            symbol,
+            handle,
+          });
+
           safeSend(socket, {
-            type: "ticker",
+            type: "ack",
+            op: "subscribe",
+            channel: "ticker",
+            id: parsed.id,
             subscriptionId,
             exchange: adapter.meta.id,
             symbol,
-            data: ticker,
+          });
+          return;
+        }
+
+        // parsed.channel === "depth"
+        const handle = adapter.ws.subscribeDepth(symbol, (depth) => {
+          safeSend(socket, {
+            type: "depth",
+            subscriptionId,
+            exchange: adapter.meta.id,
+            symbol,
+            data: depth,
           });
         });
 
         subscriptions.set(subscriptionId, {
-          channel: "ticker",
+          channel: "depth",
           exchange: adapter.meta.id,
           symbol,
           handle,
@@ -286,7 +325,7 @@ export function createMarketWsServer(): WebSocketServer {
         safeSend(socket, {
           type: "ack",
           op: "subscribe",
-          channel: "ticker",
+          channel: "depth",
           id: parsed.id,
           subscriptionId,
           exchange: adapter.meta.id,

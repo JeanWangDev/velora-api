@@ -49,6 +49,7 @@ export class SpotController {
       type: body.type,
       price: body.price ?? null,
       quantity: body.quantity,
+      timeInForce: body.timeInForce,
     });
     ctx.sendSuccess({ order: toSpotOrderDto(order) }, { message: "下单成功" });
   }
@@ -95,21 +96,43 @@ export class SpotController {
     });
   }
 
-  /** 止盈止损 / 条件单 */
+  /** 改单 */
+  static async amendOrder(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const body = ctx.request.body as {
+      orderNo?: string;
+      price?: number | null;
+      quantity?: number;
+    };
+    if (!body.orderNo) throw new BadRequestError("参数无效");
+    const order = await SpotOrderService.amendOrder(userId, {
+      orderNo: body.orderNo,
+      price: body.price,
+      quantity: body.quantity,
+    });
+    ctx.sendSuccess({ order: toSpotOrderDto(order) }, { message: "改单成功" });
+  }
+
+  /** 止盈止损 / 移动止盈 / 条件单 */
   static async placeAlgoOrder(ctx: Context) {
     const userId = resolveUserId(ctx);
     const body = ctx.request.body as {
       symbol?: string;
       side?: "buy" | "sell";
-      algoType?: "stop_loss" | "take_profit";
+      algoType?: "stop_loss" | "take_profit" | "trailing_stop";
       triggerPrice?: number;
       orderPrice?: number | null;
       quantity?: number;
+      callbackRate?: number;
     };
-    const triggerPrice = Number(body.triggerPrice);
     const quantity = Number(body.quantity);
-    if (!body.symbol || !body.side || !body.algoType || !(triggerPrice > 0) || !(quantity > 0)) {
+    if (!body.symbol || !body.side || !body.algoType || !(quantity > 0)) {
       throw new BadRequestError("参数无效");
+    }
+    const triggerPrice =
+      body.algoType === "trailing_stop" ? 0 : Number(body.triggerPrice);
+    if (body.algoType !== "trailing_stop" && !(triggerPrice > 0)) {
+      throw new BadRequestError("请填写有效触发价");
     }
     const data = await SpotAlgoOrderService.place({
       userId,
@@ -119,8 +142,43 @@ export class SpotController {
       triggerPrice,
       orderPrice: body.orderPrice ?? null,
       quantity,
+      callbackRate: body.callbackRate,
     });
     ctx.sendSuccess(data, { message: "条件单已提交" });
+  }
+
+  /** OCO：止盈 + 止损 */
+  static async placeOco(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const body = ctx.request.body as {
+      symbol?: string;
+      side?: "buy" | "sell";
+      quantity?: number;
+      takeProfitTrigger?: number;
+      stopLossTrigger?: number;
+      takeProfitOrderPrice?: number | null;
+      stopLossOrderPrice?: number | null;
+    };
+    if (
+      !body.symbol ||
+      !body.side ||
+      !(Number(body.quantity) > 0) ||
+      !(Number(body.takeProfitTrigger) > 0) ||
+      !(Number(body.stopLossTrigger) > 0)
+    ) {
+      throw new BadRequestError("参数无效");
+    }
+    const data = await SpotAlgoOrderService.placeOco({
+      userId,
+      symbol: body.symbol.toUpperCase(),
+      side: body.side,
+      quantity: Number(body.quantity),
+      takeProfitTrigger: Number(body.takeProfitTrigger),
+      stopLossTrigger: Number(body.stopLossTrigger),
+      takeProfitOrderPrice: body.takeProfitOrderPrice ?? null,
+      stopLossOrderPrice: body.stopLossOrderPrice ?? null,
+    });
+    ctx.sendSuccess(data, { message: "OCO 条件单已提交" });
   }
 
   static async listAlgoOrders(ctx: Context) {

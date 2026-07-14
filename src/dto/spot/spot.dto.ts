@@ -5,6 +5,7 @@ export interface SpotOrderDto {
   symbol: string;
   side: string;
   type: string;
+  timeInForce: string;
   price: number | null;
   quantity: number;
   filledQuantity: number;
@@ -36,6 +37,7 @@ export function toSpotOrderDto(row: SpotOrder): SpotOrderDto {
     symbol: row.symbol,
     side: row.side,
     type: row.type,
+    timeInForce: row.timeInForce ?? "gtc",
     price: row.price === null ? null : Number(row.price),
     quantity: Number(row.quantity),
     filledQuantity: Number(row.filledQuantity),

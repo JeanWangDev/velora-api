@@ -1,6 +1,7 @@
 export {
   registerBodySchema,
   loginBodySchema,
+  loginTotpBodySchema,
   loginVerifyBodySchema,
   sendEmailCodeBodySchema,
   verifyEmailCodeBodySchema,

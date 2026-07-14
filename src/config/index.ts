@@ -16,6 +16,7 @@ export interface AppConfig {
   binanceWsBaseUrl: string;
   marketWsPath: string;
   eventsWsPath: string;
+  privateWsPath: string;
   liquidationWorkerEnabled: boolean;
   eventsWsRequireAuth: boolean;
   mail: {
@@ -98,7 +99,7 @@ const development: AppConfig = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   authSkipPaths: envList(
     "AUTH_SKIP_PATHS",
-    "/health,/api/v1/market,/api/v1/dashboard,/api/v1/events,/api/v1/billing/plans,/ws/market,/ws/events",
+    "/health,/api/v1/market,/api/v1/dashboard,/api/v1/events,/api/v1/billing/plans,/api/v1/announcements,/ws/market,/ws/events,/ws/private",
   ),
   marketRateLimitPerMin: parseInt(process.env.MARKET_RATE_LIMIT_PER_MIN || "120", 10),
   binanceRestBaseUrl:
@@ -107,6 +108,7 @@ const development: AppConfig = {
     process.env.BINANCE_WS_BASE_URL || "wss://data-stream.binance.vision",
   marketWsPath: process.env.MARKET_WS_PATH || "/ws/market",
   eventsWsPath: process.env.EVENTS_WS_PATH || "/ws/events",
+  privateWsPath: process.env.PRIVATE_WS_PATH || "/ws/private",
   liquidationWorkerEnabled: envBool("LIQUIDATION_WORKER_ENABLED", false),
   eventsWsRequireAuth: envBool("EVENTS_WS_REQUIRE_AUTH", false),
   mail: {

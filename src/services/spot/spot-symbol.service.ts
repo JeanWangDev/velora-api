@@ -1,7 +1,9 @@
 import { config } from "@/config";
 import { SpotSymbol } from "@/db";
 import { BadRequestError, NotFoundError } from "@/errors/app-error";
+import { listUsdtSpotMarkets } from "@/exchanges/binance/rest";
 import MarketService from "@/services/market/market.service";
+import { SpotSymbolSyncService } from "@/services/spot/spot-symbol-sync.service";
 
 export interface SpotSymbolView {
   symbol: string;
@@ -43,23 +45,25 @@ export function toSymbolView(row: SpotSymbol): SpotSymbolView {
 }
 
 export class SpotSymbolService {
-  /** 上架中的现货交易对列表 */
+  /** Binance USDT 现货全量（行情对接，不限制 Admin 上架数量） */
   static async list(): Promise<SpotSymbolView[]> {
-    assertDbReady();
-    const rows = await SpotSymbol.findAll({
-      where: { status: 1 },
-      order: [
-        ["sortOrder", "ASC"],
-        ["id", "ASC"],
-      ],
-    });
-    return rows.map(toSymbolView);
+    const markets = await listUsdtSpotMarkets();
+    return markets.map((m) => ({
+      ...m,
+      makerFee: 0.001,
+      takerFee: 0.001,
+    }));
   }
 
-  /** 获取单个交易对元数据（不存在/停牌抛错） */
+  /** 获取单个交易对元数据；不存在时从 Binance 自动建档 */
   static async requireTrading(symbol: string): Promise<SpotSymbol> {
     assertDbReady();
-    const row = await SpotSymbol.findOne({ where: { symbol: symbol.toUpperCase() } });
+    const upper = symbol.toUpperCase();
+    let row = await SpotSymbol.findOne({ where: { symbol: upper } });
+    if (!row) {
+      await SpotSymbolSyncService.upsertFromVeloraSymbol(upper);
+      row = await SpotSymbol.findOne({ where: { symbol: upper } });
+    }
     if (!row) {
       throw new NotFoundError("交易对不存在");
     }

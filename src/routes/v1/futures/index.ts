@@ -4,6 +4,7 @@ import { z } from "zod";
 import { BadRequestError } from "@/errors/app-error";
 import { requireAuthUser } from "@/middlewares/auth.middleware";
 import { FuturesOrderService } from "@/services/futures/futures-order.service";
+import { FuturesPreferenceService } from "@/services/futures/futures-preference.service";
 import { FuturesSymbolService } from "@/services/futures/futures-symbol.service";
 
 function resolveUserId(ctx: Context): number {
@@ -77,11 +78,66 @@ export class FuturesController {
     const data = await FuturesOrderService.listMarkPrices();
     ctx.sendSuccess({ data });
   }
+
+  static async setLeverage(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const schema = z.object({
+      symbol: z.string().min(1),
+      leverage: z.number().int().min(1).max(125),
+    });
+    const parsed = schema.safeParse(ctx.request.body);
+    if (!parsed.success) throw new BadRequestError("参数无效");
+    const data = await FuturesPreferenceService.setLeverage(
+      userId,
+      parsed.data.symbol,
+      parsed.data.leverage,
+    );
+    ctx.sendSuccess(data);
+  }
+
+  static async setMarginMode(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const schema = z.object({
+      symbol: z.string().min(1),
+      marginMode: z.enum(["cross", "isolated"]),
+    });
+    const parsed = schema.safeParse(ctx.request.body);
+    if (!parsed.success) throw new BadRequestError("参数无效");
+    const data = await FuturesPreferenceService.setMarginMode(
+      userId,
+      parsed.data.symbol,
+      parsed.data.marginMode,
+    );
+    ctx.sendSuccess(data);
+  }
+
+  static async preference(ctx: Context) {
+    const userId = resolveUserId(ctx);
+    const symbol = String(ctx.query.symbol ?? "").toUpperCase();
+    if (!symbol) throw new BadRequestError("symbol is required");
+    const data = await FuturesPreferenceService.get(userId, symbol);
+    ctx.sendSuccess(data);
+  }
+
+  static async fundingRate(ctx: Context) {
+    const rows = await FuturesOrderService.listMarkPrices();
+    const symbol = ctx.query.symbol
+      ? String(ctx.query.symbol).toUpperCase()
+      : undefined;
+    const data = symbol
+      ? (rows as { symbol: string }[]).filter((r) => r.symbol === symbol)
+      : rows;
+    ctx.sendSuccess({ data });
+  }
 }
 
 const router = new Router({ prefix: "/futures" });
 router.post("/order", FuturesController.placeOrder);
 router.post("/order/cancel", FuturesController.cancelOrder);
+router.post("/leverage", FuturesController.setLeverage);
+router.post("/margin-mode", FuturesController.setMarginMode);
+router.get("/preference", FuturesController.preference);
+router.get("/funding-rate", FuturesController.fundingRate);
 router.get("/orders/open", FuturesController.openOrders);
 router.get("/orders/history", FuturesController.historyOrders);
 router.get("/positions", FuturesController.positions);

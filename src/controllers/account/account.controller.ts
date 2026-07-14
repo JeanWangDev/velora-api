@@ -21,6 +21,8 @@ export class AccountController {
       | "funding"
       | "trading"
       | "futures"
+      | "earn"
+      | "margin"
       | undefined;
     const balances = await AccountService.getBalances(userId, accountType);
     ctx.sendSuccess({ balances });

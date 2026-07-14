@@ -15,6 +15,7 @@ declare module "koa" {
   interface DefaultState {
     user?: AuthUser;
     auth?: AuthState;
+    apiKey?: string;
   }
 
   interface DefaultContext {

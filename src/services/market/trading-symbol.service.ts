@@ -2,6 +2,8 @@ import { Op } from "sequelize";
 import { config } from "@/config";
 import { TradingSymbol } from "@/db/models/market";
 import { BadRequestError, NotFoundError } from "@/errors/app-error";
+import MarketService from "@/services/market/market.service";
+import { SpotSymbolSyncService } from "@/services/spot/spot-symbol-sync.service";
 
 export type TradingPairRecord = {
   id: number;
@@ -221,6 +223,14 @@ export class TradingSymbolService {
     const symbol = input.symbol.trim().toUpperCase();
     const baseAsset = input.baseAsset.trim().toUpperCase();
 
+    if (exchange === "binance") {
+      try {
+        await MarketService.getSymbolInfo({ exchange, symbol });
+      } catch {
+        throw new BadRequestError(`Binance 上不存在现货交易对 ${symbol}`);
+      }
+    }
+
     const existing = await TradingSymbol.findOne({
       where: { exchange, symbol },
     });
@@ -245,7 +255,11 @@ export class TradingSymbolService {
       updateTime: now,
     });
 
-    return mapRow(row);
+    const created = mapRow(row);
+    if (created.status === ACTIVE) {
+      await SpotSymbolSyncService.upsertFromTradingPair(created);
+    }
+    return created;
   }
 
   static async update(id: number, input: UpdateTradingSymbolInput): Promise<TradingPairRecord> {
@@ -298,7 +312,13 @@ export class TradingSymbolService {
 
     await row.update(updates);
     await row.reload();
-    return mapRow(row);
+    const updated = mapRow(row);
+    if (updated.status === ACTIVE) {
+      await SpotSymbolSyncService.upsertFromTradingPair(updated);
+    } else {
+      await SpotSymbolSyncService.disableForTradingPair(updated);
+    }
+    return updated;
   }
 
   static async remove(id: number): Promise<void> {
@@ -316,5 +336,6 @@ export class TradingSymbolService {
       isDefault: 0,
       updateTime: new Date(),
     });
+    await SpotSymbolSyncService.disableForTradingPair(mapRow(row));
   }
 }

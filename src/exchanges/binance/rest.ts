@@ -12,6 +12,7 @@ import type {
   ISymbolInfo,
   ISymbolSummary,
   ITicker24h,
+  ITradeTick,
 } from "@/types/market";
 import { createIntervalMapper } from "@/exchanges/intervals";
 import type {
@@ -45,6 +46,13 @@ export const binanceSupportedIntervals = intervalMapper.supported;
 
 const BINANCE_KLINE_LIMIT = 1000;
 
+interface BinanceSymbolFilter {
+  filterType: string;
+  minQty?: string;
+  stepSize?: string;
+  tickSize?: string;
+}
+
 interface BinanceExchangeInfoResponse {
   symbols: {
     symbol: string;
@@ -54,6 +62,7 @@ interface BinanceExchangeInfoResponse {
     baseAssetPrecision: number;
     quoteAssetPrecision: number;
     isSpotTradingAllowed: boolean;
+    filters?: BinanceSymbolFilter[];
   }[];
 }
 
@@ -76,6 +85,20 @@ function getExchangeInfo(): Promise<BinanceExchangeInfoResponse> {
   }
 
   return exchangeInfoCache;
+}
+
+/** 从 Binance LOT_SIZE 读取最小下单量 */
+export async function getBinanceMinQty(symbol: string): Promise<number> {
+  const target = symbol.trim().toUpperCase();
+  const info = await getExchangeInfo();
+  const found = info.symbols.find((item) => item.symbol === target);
+  if (!found) return 0;
+
+  const lot = found.filters?.find((f) => f.filterType === "LOT_SIZE");
+  const minQty = Number(lot?.minQty ?? lot?.stepSize ?? 0);
+  if (minQty > 0) return minQty;
+
+  return Math.pow(10, -found.baseAssetPrecision);
 }
 
 async function fetchKlineRange(
@@ -101,6 +124,43 @@ async function fetchKlineRange(
   );
 
   return rows.map(mapBinanceKline);
+}
+
+/** Binance 全量 USDT 现货（交易页列表，不对 Admin 上架做数量限制） */
+export async function listUsdtSpotMarkets(): Promise<
+  {
+    symbol: string;
+    base: string;
+    quote: string;
+    displayName: string;
+    pricePrecision: number;
+    qtyPrecision: number;
+    minQty: number;
+    status: "trading";
+  }[]
+> {
+  const info = await getExchangeInfo();
+  return info.symbols
+    .filter(
+      (s) =>
+        s.status === "TRADING" &&
+        s.isSpotTradingAllowed &&
+        s.quoteAsset === "USDT",
+    )
+    .map((s) => {
+      const lot = s.filters?.find((f) => f.filterType === "LOT_SIZE");
+      const minQty = Number(lot?.minQty ?? lot?.stepSize ?? 0);
+      return {
+        symbol: `${s.baseAsset}-${s.quoteAsset}`,
+        base: s.baseAsset,
+        quote: s.quoteAsset,
+        displayName: s.baseAsset,
+        pricePrecision: s.quoteAssetPrecision,
+        qtyPrecision: s.baseAssetPrecision,
+        minQty: minQty > 0 ? minQty : Math.pow(10, -s.baseAssetPrecision),
+        status: "trading" as const,
+      };
+    });
 }
 
 export const binanceRest: IExchangeRest = {
@@ -242,9 +302,32 @@ export const binanceRest: IExchangeRest = {
     };
   },
 
+  async getAggTrades(symbol: string, limit = 50): Promise<ITradeTick[]> {
+    const target = symbol.trim().toUpperCase();
+    const capped = Math.min(Math.max(limit, 1), 100);
+    const rows = await fetchJson<
+      {
+        a: number;
+        p: string;
+        q: string;
+        T: number;
+        m: boolean;
+      }[]
+    >(
+      `${config.binanceRestBaseUrl}/api/v3/aggTrades?symbol=${encodeURIComponent(target)}&limit=${capped}`,
+    );
+    return rows.map((row) => ({
+      time: row.T,
+      price: Number(row.p),
+      quantity: Number(row.q),
+      isBuyerMaker: row.m,
+    }));
+  },
+
   async searchSymbols(params: ISearchSymbolsParams): Promise<ISymbolSummary[]> {
     const query = params.query.trim().toUpperCase();
-    const limit = params.limit ?? 30;
+    const limit = params.limit ?? 500;
+    const quote = params.quoteAsset?.trim().toUpperCase();
 
     const info = await getExchangeInfo();
 
@@ -253,7 +336,10 @@ export const binanceRest: IExchangeRest = {
         (symbol) =>
           symbol.status === "TRADING" &&
           symbol.isSpotTradingAllowed &&
-          (!query || symbol.symbol.includes(query)),
+          (!quote || symbol.quoteAsset === quote) &&
+          (!query ||
+            symbol.symbol.includes(query) ||
+            symbol.baseAsset.includes(query)),
       )
       .slice(0, limit)
       .map((symbol) => ({
@@ -262,6 +348,16 @@ export const binanceRest: IExchangeRest = {
         quoteAsset: symbol.quoteAsset,
         description: `${symbol.baseAsset}/${symbol.quoteAsset} Spot`,
       }));
+  },
+
+  async getTickers24h(quoteAsset = "USDT"): Promise<ITicker24h[]> {
+    const quote = quoteAsset.trim().toUpperCase();
+    const rows = await fetchJson<BinanceTicker24hResponse[]>(
+      `${config.binanceRestBaseUrl}/api/v3/ticker/24hr`,
+    );
+    return rows
+      .filter((row) => !quote || row.symbol.endsWith(quote))
+      .map(mapBinanceTicker24h);
   },
 
   async getSymbolInfo(symbol: string): Promise<ISymbolInfo> {

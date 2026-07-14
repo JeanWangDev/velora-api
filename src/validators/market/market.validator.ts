@@ -22,7 +22,13 @@ export const klinesQuerySchema = z.object({
 export const searchSymbolsQuerySchema = z.object({
   exchange: z.string().min(1).optional(),
   query: z.string().optional().default(""),
-  limit: z.coerce.number().int().positive().max(100).optional(),
+  quote: z.string().min(1).optional(),
+  limit: z.coerce.number().int().positive().max(1000).optional(),
+});
+
+export const tickersQuerySchema = z.object({
+  exchange: z.string().min(1).optional(),
+  quote: z.string().min(1).optional().default("USDT"),
 });
 
 export const symbolInfoQuerySchema = z.object({
@@ -45,6 +51,7 @@ export type KlinesQuery = z.infer<typeof klinesQuerySchema>;
 export type SearchSymbolsQuery = z.infer<typeof searchSymbolsQuerySchema>;
 export type SymbolInfoQuery = z.infer<typeof symbolInfoQuerySchema>;
 export type TickerQuery = z.infer<typeof tickerQuerySchema>;
+export type TickersQuery = z.infer<typeof tickersQuerySchema>;
 
 export const depthQuerySchema = z.object({
   exchange: z.string().min(1).optional(),
@@ -56,6 +63,17 @@ export const depthQuerySchema = z.object({
 });
 
 export type DepthQuery = z.infer<typeof depthQuerySchema>;
+
+export const tradesQuerySchema = z.object({
+  exchange: z.string().min(1).optional(),
+  symbol: z
+    .string()
+    .min(1, "symbol is required")
+    .transform((value) => value.toUpperCase()),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+});
+
+export type TradesQuery = z.infer<typeof tradesQuerySchema>;
 
 export const priceLevelsQuerySchema = z.object({
   exchange: z.string().min(1).optional(),

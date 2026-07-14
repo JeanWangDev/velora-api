@@ -2,7 +2,8 @@ import crypto from "crypto";
 import type { Context, Next } from "koa";
 import { QueryTypes } from "sequelize";
 import { getSequelize } from "@/db/connection";
-import { UnauthorizedError } from "@/errors/app-error";
+import { ForbiddenError, UnauthorizedError } from "@/errors/app-error";
+import { ApiKeyService } from "@/services/api-key/api-key.service";
 import { decryptApiSecret, signApiPayload } from "@/utils/api-key-crypto";
 
 const API_KEY_HEADER = "x-api-key";
@@ -17,6 +18,25 @@ function buildSignPayload(ctx: Context, timestamp: string): string {
     (ctx.request as { rawBody?: string }).rawBody ??
     (ctx.request.body ? JSON.stringify(ctx.request.body) : "");
   return `${timestamp}${method}${path}${body}`;
+}
+
+function extractSymbol(ctx: Context): string {
+  const body = (ctx.request.body ?? {}) as Record<string, unknown>;
+  const fromBody = body.symbol ?? body.instId ?? body.pair;
+  const fromQuery = ctx.query.symbol ?? ctx.query.instId;
+  const raw = String(fromBody ?? fromQuery ?? "").trim().toUpperCase();
+  return raw;
+}
+
+function assertSymbolAllowed(whitelist: string, symbol: string) {
+  const allowed = whitelist
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  if (allowed.length === 0 || !symbol) return;
+  if (!allowed.includes(symbol)) {
+    throw new ForbiddenError("交易对不在 API Key 白名单");
+  }
 }
 
 /** OKX 风格 API Key HMAC-SHA256 鉴权 */
@@ -42,10 +62,11 @@ export async function apiKeyAuthMiddleware(ctx: Context, next: Next) {
     secretEnc: string;
     permissions: string;
     ipWhitelist: string;
+    symbolWhitelist: string;
     status: number;
   }>(
     `SELECT f_user_id AS userId, f_api_secret_hash AS secretEnc, f_permissions AS permissions,
-            f_ip_whitelist AS ipWhitelist, f_status AS status
+            f_ip_whitelist AS ipWhitelist, f_symbol_whitelist AS symbolWhitelist, f_status AS status
      FROM t_api_key WHERE f_api_key = :apiKey LIMIT 1`,
     { replacements: { apiKey }, type: QueryTypes.SELECT },
   );
@@ -83,6 +104,8 @@ export async function apiKeyAuthMiddleware(ctx: Context, next: Next) {
     throw new UnauthorizedError("签名无效");
   }
 
+  assertSymbolAllowed(row.symbolWhitelist ?? "", extractSymbol(ctx));
+
   ctx.state.authUser = {
     id: String(row.userId),
     email: "",
@@ -91,10 +114,22 @@ export async function apiKeyAuthMiddleware(ctx: Context, next: Next) {
     authMethod: "api_key",
     permissions: row.permissions.split(",").map((s) => s.trim()),
   };
+  ctx.state.apiKey = apiKey;
 
   await sequelize.query(`UPDATE t_api_key SET f_last_used_at = NOW() WHERE f_api_key = :apiKey`, {
     replacements: { apiKey },
   });
 
-  return next();
+  try {
+    await next();
+  } finally {
+    void ApiKeyService.logCall({
+      userId: row.userId,
+      apiKey,
+      method: ctx.method,
+      path: ctx.path,
+      statusCode: ctx.status || 200,
+      ip: ctx.ip || "",
+    });
+  }
 }

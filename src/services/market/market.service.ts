@@ -11,6 +11,8 @@ import type {
   SearchSymbolsQuery,
   SymbolInfoQuery,
   TickerQuery,
+  TickersQuery,
+  TradesQuery,
 } from "@/validators/market";
 import { UpstreamServiceError } from "@/errors/app-error";
 
@@ -63,10 +65,23 @@ class MarketService {
       return await exchange.rest.searchSymbols({
         query: query.query,
         limit: query.limit,
+        quoteAsset: query.quote,
       });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Upstream symbols failed";
+      throw new UpstreamServiceError(message);
+    }
+  }
+
+  async getTickers24h(query: TickersQuery) {
+    const exchange = getExchange(query.exchange);
+
+    try {
+      return await exchange.rest.getTickers24h(query.quote);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Upstream tickers failed";
       throw new UpstreamServiceError(message);
     }
   }
@@ -103,6 +118,17 @@ class MarketService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Upstream depth failed";
+      throw new UpstreamServiceError(message);
+    }
+  }
+
+  async getTrades(query: TradesQuery) {
+    const exchange = getExchange(query.exchange);
+    try {
+      return await exchange.rest.getAggTrades(query.symbol, query.limit);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Upstream trades failed";
       throw new UpstreamServiceError(message);
     }
   }

@@ -8,12 +8,16 @@ export type LedgerType =
   | "fee"
   | "freeze"
   | "unfreeze"
-  | "credit";
+  | "credit"
+  | "transfer";
+
+export type LedgerAccountType = "funding" | "trading" | "futures";
 
 export class AccountLedger extends Model {
   declare id: number;
   declare userId: number;
   declare currency: string;
+  declare accountType: LedgerAccountType;
   declare type: LedgerType;
   declare amount: string;
   declare balanceAfter: string;
@@ -30,6 +34,12 @@ export async function initAccountLedgerModel() {
       id: { type: DataTypes.BIGINT, primaryKey: true, autoIncrement: true, field: "f_id" },
       userId: { type: DataTypes.BIGINT, field: "f_user_id", allowNull: false },
       currency: { type: DataTypes.STRING(16), field: "f_currency", allowNull: false },
+      accountType: {
+        type: DataTypes.STRING(16),
+        field: "f_account_type",
+        allowNull: false,
+        defaultValue: "trading",
+      },
       type: { type: DataTypes.STRING(16), field: "f_type", allowNull: false },
       amount: { type: DataTypes.DECIMAL(36, 12), field: "f_amount", allowNull: false },
       balanceAfter: {

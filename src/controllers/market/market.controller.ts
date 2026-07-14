@@ -15,8 +15,10 @@ import {
   marketBriefQuerySchema,
   priceLevelsQuerySchema,
   searchSymbolsQuerySchema,
+  tickersQuerySchema,
   symbolInfoQuerySchema,
   tickerQuerySchema,
+  tradesQuerySchema,
 } from "@/validators/market";
 
 export class MarketController {
@@ -52,6 +54,17 @@ export class MarketController {
 
     ctx.set("Cache-Control", "public, max-age=300");
     ctx.sendSuccess(symbols.map(toSymbolSummaryDto));
+  }
+
+  static async getTickers24h(ctx: Context) {
+    const parsed = tickersQuerySchema.safeParse(ctx.query);
+    if (!parsed.success) {
+      throw new BadRequestError(formatZodError(parsed.error));
+    }
+
+    const tickers = await MarketService.getTickers24h(parsed.data);
+    ctx.set("Cache-Control", "public, max-age=2, s-maxage=2");
+    ctx.sendSuccess(tickers.map(toTicker24hDto));
   }
 
   static async listTradingPairs(ctx: Context) {
@@ -92,6 +105,17 @@ export class MarketController {
     const depth = await MarketService.getDepth(parsed.data);
     ctx.set("Cache-Control", "public, max-age=1, s-maxage=1");
     ctx.sendSuccess(depth);
+  }
+
+  static async getTrades(ctx: Context) {
+    const parsed = tradesQuerySchema.safeParse(ctx.query);
+    if (!parsed.success) {
+      throw new BadRequestError(formatZodError(parsed.error));
+    }
+
+    const trades = await MarketService.getTrades(parsed.data);
+    ctx.set("Cache-Control", "public, max-age=1, s-maxage=1");
+    ctx.sendSuccess(trades);
   }
 
   static async getPriceLevels(ctx: Context) {

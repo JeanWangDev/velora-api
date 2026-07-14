@@ -19,11 +19,12 @@ export interface BalanceView {
   frozen: number;
 }
 
-export type AccountType = "funding" | "trading" | "futures";
+export type AccountType = "funding" | "trading" | "futures" | "earn" | "margin";
 
 export interface LedgerView {
   id: number;
   currency: string;
+  accountType: AccountType;
   type: LedgerType;
   amount: number;
   balanceAfter: number;
@@ -90,16 +91,22 @@ export class AccountService {
   /** 分页查询资金流水 */
   static async getLedger(
     userId: number,
-    options?: { page?: number; pageSize?: number; currency?: string },
+    options?: {
+      page?: number;
+      pageSize?: number;
+      currency?: string;
+      accountType?: AccountType;
+      type?: LedgerType;
+    },
   ): Promise<{ rows: LedgerView[]; total: number; page: number; pageSize: number }> {
     assertDbReady();
     const page = Math.max(1, options?.page ?? 1);
     const pageSize = Math.min(200, Math.max(1, options?.pageSize ?? 50));
     const offset = (page - 1) * pageSize;
     const where: Record<string, unknown> = { userId };
-    if (options?.currency) {
-      where.currency = options.currency;
-    }
+    if (options?.currency) where.currency = options.currency.toUpperCase();
+    if (options?.accountType) where.accountType = options.accountType;
+    if (options?.type) where.type = options.type;
 
     const { rows, count } = await AccountLedger.findAndCountAll({
       where,
@@ -112,6 +119,7 @@ export class AccountService {
       rows: rows.map((r) => ({
         id: r.id,
         currency: r.currency,
+        accountType: (r.accountType ?? "trading") as AccountType,
         type: r.type,
         amount: Number(r.amount),
         balanceAfter: Number(r.balanceAfter),
@@ -176,6 +184,7 @@ export class AccountService {
         {
           userId: params.userId,
           currency: params.currency,
+          accountType,
           type: params.ledgerType,
           amount: params.ledgerAmount ?? 0,
           balanceAfter,

@@ -17,6 +17,9 @@ import walletRoutes from "./wallet";
 import notificationRoutes from "./notifications";
 import futuresRoutes from "./futures";
 import apiKeyRoutes from "./api-keys";
+import announcementRoutes from "./announcements";
+import supportRoutes from "./support";
+import platformRoutes, { adminPlatformRouter } from "./platform";
 
 const router = new Router({ prefix: "/v1" });
 
@@ -38,5 +41,8 @@ router.use(walletRoutes.routes(), walletRoutes.allowedMethods());
 router.use(notificationRoutes.routes(), notificationRoutes.allowedMethods());
 router.use(futuresRoutes.routes(), futuresRoutes.allowedMethods());
 router.use(apiKeyRoutes.routes(), apiKeyRoutes.allowedMethods());
+router.use(announcementRoutes.routes(), announcementRoutes.allowedMethods());
+router.use(supportRoutes.routes(), supportRoutes.allowedMethods());
+router.use(platformRoutes.routes(), platformRoutes.allowedMethods());
 
 export default router;
