@@ -74,7 +74,11 @@ export interface AppConfig {
 }
 
 const env = process.env.NODE_ENV || "development";
-dotenv.config({ path: path.resolve(process.cwd(), `.env.${env}`) });
+// override: true — 以 .env.* 文件为准，避免 PM2 旧环境变量把新 key「锁死」
+dotenv.config({
+  path: path.resolve(process.cwd(), `.env.${env}`),
+  override: true,
+});
 
 function envBool(key: string, fallback = false): boolean {
   const value = process.env[key];
