@@ -27,6 +27,14 @@ function generateCode(): string {
   return String(crypto.randomInt(100_000, 1_000_000));
 }
 
+function assertSixDigits(code: string): string {
+  const normalizedCode = code.trim();
+  if (!/^\d{6}$/.test(normalizedCode)) {
+    throw new BadRequestError("验证码格式不正确");
+  }
+  return normalizedCode;
+}
+
 export class EmailVerificationService {
   static async sendCode(emailInput: string, purpose: EmailVerificationPurpose) {
     const email = normalizeEmail(emailInput);
@@ -38,6 +46,14 @@ export class EmailVerificationService {
       }
     } else if (!user) {
       throw new BadRequestError("该邮箱未注册");
+    }
+
+    // 测试绕过：不发邮件、不写验证码记录，前端仍走弹窗
+    if (config.authBypassEmailCode) {
+      console.info(`[mail:bypass] skip send purpose=${purpose} to=${email}`);
+      return {
+        message: "测试环境已跳过邮件发送，请输入任意 6 位数字验证码",
+      };
     }
 
     const cooldownSince = new Date(Date.now() - SEND_COOLDOWN_MS);
@@ -72,15 +88,9 @@ export class EmailVerificationService {
 
     await MailService.sendVerificationCode(email, code);
 
-    const result: { message: string; devCode?: string } = {
+    return {
       message: "验证码已发送，请查收邮件（10 分钟内有效）",
     };
-
-    if (config.isDev && !config.mail.enabled) {
-      result.devCode = code;
-    }
-
-    return result;
   }
 
   /**
@@ -95,12 +105,11 @@ export class EmailVerificationService {
     purpose: EmailVerificationPurpose,
     code: string,
   ): Promise<void> {
+    assertSixDigits(code);
+    if (config.authBypassEmailCode) return;
+
     const email = normalizeEmail(emailInput);
     const normalizedCode = code.trim();
-
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      throw new BadRequestError("验证码格式不正确");
-    }
 
     const row = await EmailVerification.findOne({
       where: {
@@ -122,12 +131,11 @@ export class EmailVerificationService {
     purpose: EmailVerificationPurpose,
     code: string,
   ): Promise<void> {
+    assertSixDigits(code);
+    if (config.authBypassEmailCode) return;
+
     const email = normalizeEmail(emailInput);
     const normalizedCode = code.trim();
-
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      throw new BadRequestError("验证码格式不正确");
-    }
 
     const row = await EmailVerification.findOne({
       where: {

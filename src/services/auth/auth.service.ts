@@ -301,7 +301,6 @@ export class AuthService {
       challengeToken,
       maskedEmail: maskEmail(body.email),
       message: codeResult.message,
-      ...(codeResult.devCode ? { devCode: codeResult.devCode } : {}),
     };
   }
 

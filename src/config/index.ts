@@ -24,6 +24,8 @@ export interface AppConfig {
     resendApiKey: string;
     from: string;
   };
+  /** 测试环境：不发邮件，任意 6 位验证码可通过（生产必须 false） */
+  authBypassEmailCode: boolean;
   db: {
     enabled: boolean;
     host: string;
@@ -120,6 +122,8 @@ const development: AppConfig = {
     resendApiKey: process.env.RESEND_API_KEY || "",
     from: process.env.MAIL_FROM || "Velora <noreply@velora.com>",
   },
+  // 开发/测试默认开启；生产强制关闭（见下方 production 覆盖）
+  authBypassEmailCode: envBool("AUTH_BYPASS_EMAIL_CODE", true),
   db: {
     enabled: envBool("DB_ENABLED", false),
     host: process.env.DB_HOST || "",
@@ -174,6 +178,7 @@ const production: AppConfig = {
   env: "production",
   isDev: false,
   isProd: true,
+  authBypassEmailCode: false,
   clientOrigins: envList(
     "CLIENT_ORIGINS",
     "https://app.velora.com,https://velora.com,https://www.velora.com",
