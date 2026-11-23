@@ -48,10 +48,11 @@ export class EmailVerificationService {
       throw new BadRequestError("该邮箱未注册");
     }
 
-    // 测试绕过：不发邮件、不写验证码记录，前端仍走弹窗
+    // 测试绕过：不发邮件、不写验证码记录，前端仍走弹窗（注册/登录/重置同一逻辑）
     if (config.authBypassEmailCode) {
       console.info(`[mail:bypass] skip send purpose=${purpose} to=${email}`);
       return {
+        bypassed: true as const,
         message: "测试环境已跳过邮件发送，请输入任意 6 位数字验证码",
       };
     }
@@ -89,6 +90,7 @@ export class EmailVerificationService {
     await MailService.sendVerificationCode(email, code);
 
     return {
+      bypassed: false as const,
       message: "验证码已发送，请查收邮件（10 分钟内有效）",
     };
   }

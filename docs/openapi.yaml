@@ -39,6 +39,24 @@ tags:
     description: 创作者收益
   - name: Admin
     description: 管理后台（需管理员）
+  - name: Spot
+    description: 现货交易
+  - name: Futures
+    description: 永续合约
+  - name: Wallet
+    description: 钱包充提划转
+  - name: Account
+    description: 账户余额与流水
+  - name: Platform
+    description: 赚币/杠杆/期权/快捷买等平台能力
+  - name: Announcements
+    description: 平台公告
+  - name: ApiKeys
+    description: API Key 管理
+  - name: Notifications
+    description: 站内通知
+  - name: Support
+    description: 客服工单
 security:
   - bearerAuth: []
 components:
@@ -1015,4 +1033,1304 @@ paths:
       parameters:
         - { name: page, in: query, schema: { type: integer, default: 1 } }
         - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+
+# ---------------------------------------------------------------------------
+# 对照后端 validators/controllers 补全请求参数（供 Apifox 导入）
+# ---------------------------------------------------------------------------
+  /api/v1/account/balances:
+    get:
+      tags: [Account]
+      summary: 账户余额
+      parameters:
+        - name: accountType
+          in: query
+          schema: { type: string, enum: [funding, trading, futures, earn, margin] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/account/ledger:
+    get:
+      tags: [Account]
+      summary: 资金流水
+      parameters:
+        - name: currency
+          in: query
+          schema: { type: string }
+        - name: accountType
+          in: query
+          schema: { type: string, enum: [funding, trading, futures, earn, margin] }
+        - name: type
+          in: query
+          schema: { type: string, enum: [deposit, withdraw, trade, fee, freeze, unfreeze, credit, transfer] }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/announcements/remove:
+    post:
+      tags: [Admin]
+      summary: 删除公告
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/announcements/update:
+    post:
+      tags: [Admin]
+      summary: 更新公告
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+                category: { type: string, enum: [listing, maintenance, risk, system] }
+                titleZh: { type: string }
+                titleEn: { type: string }
+                summaryZh: { type: string }
+                summaryEn: { type: string }
+                contentZh: { type: string }
+                contentEn: { type: string }
+                pinned: { type: boolean }
+                status: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/announcements:
+    get:
+      tags: [Admin]
+      summary: 公告管理列表
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Admin]
+      summary: 创建公告
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, titleZh, titleEn, contentZh, contentEn]
+              properties:
+                category: { type: string, enum: [listing, maintenance, risk, system] }
+                titleZh: { type: string }
+                titleEn: { type: string }
+                summaryZh: { type: string }
+                summaryEn: { type: string }
+                contentZh: { type: string }
+                contentEn: { type: string }
+                pinned: { type: boolean }
+                status: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/deposits/confirm:
+    post:
+      tags: [Admin]
+      summary: 确认充币入账
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, currency, chain, amount, txHash]
+              properties:
+                userId: { type: integer }
+                currency: { type: string, example: USDT }
+                chain: { type: string, example: TRC20 }
+                amount: { type: number }
+                txHash: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/finance/credit:
+    post:
+      tags: [Admin]
+      summary: 人工上分
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, currency, amount]
+              properties:
+                userId: { type: integer }
+                currency: { type: string }
+                amount: { type: number }
+                remark: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/finance/debit:
+    post:
+      tags: [Admin]
+      summary: 人工下分
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, currency, amount]
+              properties:
+                userId: { type: integer }
+                currency: { type: string }
+                amount: { type: number }
+                remark: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/finance/ops:
+    get:
+      tags: [Admin]
+      summary: 资金操作日志
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: targetUserId
+          in: query
+          schema: { type: integer }
+        - name: currency
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string, enum: [credit, debit] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/finance/user-balances:
+    get:
+      tags: [Admin]
+      summary: 查询用户余额
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/platform/aml/alerts:
+    get:
+      tags: [Admin]
+      summary: AML 告警列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/platform/deposit/scan:
+    post:
+      tags: [Admin]
+      summary: TRC20 充币扫链
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/platform/insurance-fund:
+    get:
+      tags: [Admin]
+      summary: 保险基金余额
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/platform/kyb/review:
+    post:
+      tags: [Admin]
+      summary: 审核 KYB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId: { type: integer }
+                approve: { type: boolean }
+                reason: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/platform/settlement/batches:
+    get:
+      tags: [Admin]
+      summary: 清算批次列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/platform/settlement/run:
+    post:
+      tags: [Admin]
+      summary: 执行日终清算
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/support/reply:
+    post:
+      tags: [Admin]
+      summary: 回复工单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticketNo, reply]
+              properties:
+                ticketNo: { type: string }
+                reply: { type: string }
+                close: { type: boolean }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/support/tickets:
+    get:
+      tags: [Admin]
+      summary: 客服工单列表
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/trading-pairs/sync-spot:
+    post:
+      tags: [Admin]
+      summary: 从币安同步现货交易对
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/withdrawals/approve:
+    post:
+      tags: [Admin]
+      summary: 通过提现
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [withdrawNo]
+              properties:
+                withdrawNo: { type: string }
+                txHash: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/withdrawals/pending:
+    get:
+      tags: [Admin]
+      summary: 待审提现
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/admin/withdrawals/reject:
+    post:
+      tags: [Admin]
+      summary: 拒绝提现
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [withdrawNo]
+              properties:
+                withdrawNo: { type: string }
+                reason: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/announcements/{id}:
+    get:
+      tags: [Announcements]
+      summary: 公告详情
+      security: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/announcements:
+    get:
+      tags: [Announcements]
+      summary: 公告列表
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: category
+          in: query
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/api-keys/logs:
+    get:
+      tags: [ApiKeys]
+      summary: API Key 调用日志
+      parameters:
+        - name: apiKey
+          in: query
+          required: true
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/api-keys/revoke:
+    post:
+      tags: [ApiKeys]
+      summary: 吊销 API Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey]
+              properties:
+                apiKey: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/api-keys/update:
+    post:
+      tags: [ApiKeys]
+      summary: 更新 API Key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [apiKey]
+              properties:
+                apiKey: { type: string }
+                label: { type: string }
+                permissions: { type: string }
+                ipWhitelist: { type: string }
+                symbolWhitelist: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/api-keys:
+    get:
+      tags: [ApiKeys]
+      summary: API Key 列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [ApiKeys]
+      summary: 创建 API Key
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+                permissions:
+                  type: string
+                  description: 权限字符串，如 trade,read
+                ipWhitelist: { type: string }
+                symbolWhitelist: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/2fa/disable:
+    post:
+      tags: [Auth]
+      summary: 关闭 2FA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/2fa/setup:
+    post:
+      tags: [Auth]
+      summary: 开始绑定 2FA
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/2fa/status:
+    get:
+      tags: [Auth]
+      summary: 2FA 状态
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: 确认绑定 2FA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, example: 123456 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: 修改密码
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/login-history:
+    get:
+      tags: [Auth]
+      summary: 登录历史
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/login/challenge:
+    post:
+      tags: [Auth]
+      summary: 登录第一步（密码校验并发码）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, example: "user@example.com" }
+                password: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/login/totp:
+    post:
+      tags: [Auth]
+      summary: 登录 TOTP 验证
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [totpToken, code]
+              properties:
+                totpToken: { type: string }
+                code: { type: string, example: 123456 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/login/verify:
+    post:
+      tags: [Auth]
+      summary: 登录第二步（验证码签发会话）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeToken, code]
+              properties:
+                challengeToken: { type: string }
+                code:
+                  type: string
+                  example: 123456
+                  description: 6 位数字验证码
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/sessions/revoke-all:
+    post:
+      tags: [Auth]
+      summary: 踢掉全部会话
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/sessions/revoke:
+    post:
+      tags: [Auth]
+      summary: 踢掉指定会话
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/auth/sessions:
+    get:
+      tags: [Auth]
+      summary: 会话列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/funding-rate:
+    get:
+      tags: [Futures]
+      summary: 资金费率
+      security: []
+      parameters:
+        - name: symbol
+          in: query
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/leverage:
+    post:
+      tags: [Futures]
+      summary: 设置杠杆
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, leverage]
+              properties:
+                symbol: { type: string }
+                leverage:
+                  type: integer
+                  description: 1-125
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/margin-mode:
+    post:
+      tags: [Futures]
+      summary: 设置保证金模式
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, marginMode]
+              properties:
+                symbol: { type: string }
+                marginMode: { type: string, enum: [cross, isolated] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/mark-prices:
+    get:
+      tags: [Futures]
+      summary: 合约标记价格
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/order/cancel:
+    post:
+      tags: [Futures]
+      summary: 合约撤单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNo]
+              properties:
+                orderNo: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/order:
+    post:
+      tags: [Futures]
+      summary: 合约下单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, posSide, type, quantity]
+              properties:
+                symbol: { type: string, example: BTC-USDT-SWAP }
+                side: { type: string, enum: [buy, sell] }
+                posSide: { type: string, enum: [long, short] }
+                type: { type: string, enum: [limit, market] }
+                price:
+                  type: number
+                  nullable: true
+                  description: 限价单必填
+                quantity: { type: number }
+                leverage: { type: integer, default: 10 }
+                marginMode: { type: string, enum: [cross, isolated], default: cross }
+                reduceOnly: { type: boolean }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/orders/history:
+    get:
+      tags: [Futures]
+      summary: 合约历史委托
+      parameters:
+        - name: symbol
+          in: query
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/orders/open:
+    get:
+      tags: [Futures]
+      summary: 合约当前委托
+      parameters:
+        - name: symbol
+          in: query
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/positions:
+    get:
+      tags: [Futures]
+      summary: 合约持仓
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/preference:
+    get:
+      tags: [Futures]
+      summary: 合约偏好
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/futures/symbols:
+    get:
+      tags: [Futures]
+      summary: 合约交易对列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/kyc/config:
+    get:
+      tags: [KYC]
+      summary: KYC 配置
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/kyc/didit/config:
+    get:
+      tags: [KYC]
+      summary: Didit 配置
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/kyc/didit/session:
+    post:
+      tags: [KYC]
+      summary: 创建 Didit 会话
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callbackUrl: { type: string, format: uri }
+                language: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/kyc/didit/sync:
+    post:
+      tags: [KYC]
+      summary: 同步 Didit 状态
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId: { type: string, format: uuid }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/kyc/didit/webhook:
+    post:
+      tags: [KYC]
+      summary: Didit Webhook
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              description: Didit 回调原始 payload
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/depth:
+    get:
+      tags: [Market]
+      summary: 订单簿深度
+      security: []
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchange
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/tickers:
+    get:
+      tags: [Market]
+      summary: 多交易对 24h ticker
+      security: []
+      parameters:
+        - name: exchange
+          in: query
+          schema: { type: string }
+        - name: quote
+          in: query
+          schema: { type: string, default: USDT }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/market/trades:
+    get:
+      tags: [Market]
+      summary: 最近成交
+      security: []
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema: { type: string }
+        - name: exchange
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/notifications/read:
+    post:
+      tags: [Notifications]
+      summary: 标记已读
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer }
+                  minItems: 1
+                  description: 通知 ID 列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: 通知列表
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 30 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/account/tier:
+    get:
+      tags: [Platform]
+      summary: 账户等级
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/earn/positions:
+    get:
+      tags: [Platform]
+      summary: 我的赚币仓位
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/earn/products:
+    get:
+      tags: [Platform]
+      summary: 赚币产品列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/earn/redeem:
+    post:
+      tags: [Platform]
+      summary: 赎回赚币
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [positionId]
+              properties:
+                positionId: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/earn/subscribe:
+    post:
+      tags: [Platform]
+      summary: 申购赚币
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productNo, amount]
+              properties:
+                productNo: { type: string }
+                amount: { type: number }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/kyb/status:
+    get:
+      tags: [Platform]
+      summary: KYB 状态
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/kyb/submit:
+    post:
+      tags: [Platform]
+      summary: 提交企业 KYB
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [companyName]
+              properties:
+                companyName: { type: string }
+                regNo: { type: string }
+                contactName: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/margin/borrow:
+    post:
+      tags: [Platform]
+      summary: 杠杆借入
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, amount]
+              properties:
+                currency: { type: string }
+                amount: { type: number }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/margin/repay:
+    post:
+      tags: [Platform]
+      summary: 杠杆还款
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [loanId]
+              properties:
+                loanId: { type: integer }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/margin/summary:
+    get:
+      tags: [Platform]
+      summary: 杠杆负债汇总
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/options/instruments:
+    get:
+      tags: [Platform]
+      summary: 期权合约列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/options/order:
+    post:
+      tags: [Platform]
+      summary: 期权下单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, quantity]
+              properties:
+                symbol: { type: string }
+                side: { type: string, enum: [buy, sell] }
+                quantity: { type: number }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/options/positions:
+    get:
+      tags: [Platform]
+      summary: 期权持仓
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/quick-buy/confirm:
+    post:
+      tags: [Platform]
+      summary: 确认快捷买付款
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNo]
+              properties:
+                orderNo: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/quick-buy/order:
+    post:
+      tags: [Platform]
+      summary: 创建快捷买订单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fiatAmount]
+              properties:
+                fiatAmount: { type: number }
+                crypto: { type: string, default: USDT }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/quick-buy/orders:
+    get:
+      tags: [Platform]
+      summary: 快捷买订单列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/quick-buy/quote:
+    post:
+      tags: [Platform]
+      summary: 快捷买报价
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fiatAmount]
+              properties:
+                fiatAmount: { type: number }
+                crypto: { type: string, default: USDT }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/unified/equity:
+    get:
+      tags: [Platform]
+      summary: 统一账户权益
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/platform/unified/mode:
+    get:
+      tags: [Platform]
+      summary: 查询统一账户模式
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Platform]
+      summary: 切换统一账户模式
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { type: string, enum: [classic, unified] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/algo-order/cancel:
+    post:
+      tags: [Spot]
+      summary: 撤销条件单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [algoNo]
+              properties:
+                algoNo: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/algo-order:
+    post:
+      tags: [Spot]
+      summary: 现货条件单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, algoType, quantity]
+              properties:
+                symbol: { type: string, example: BTC-USDT }
+                side: { type: string, enum: [buy, sell] }
+                algoType: { type: string, enum: [stop_loss, take_profit, trailing_stop] }
+                triggerPrice:
+                  type: number
+                  description: trailing_stop 可不填
+                orderPrice: { type: number, nullable: true }
+                quantity: { type: number }
+                callbackRate:
+                  type: number
+                  description: 移动止盈回调比例
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/algo-orders/history:
+    get:
+      tags: [Spot]
+      summary: 条件单历史
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/algo-orders:
+    get:
+      tags: [Spot]
+      summary: 条件单列表
+      parameters:
+        - name: symbol
+          in: query
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/oco:
+    post:
+      tags: [Spot]
+      summary: OCO 下单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, quantity, takeProfitTrigger, stopLossTrigger]
+              properties:
+                symbol: { type: string }
+                side: { type: string, enum: [buy, sell] }
+                quantity: { type: number }
+                takeProfitTrigger: { type: number }
+                stopLossTrigger: { type: number }
+                takeProfitOrderPrice: { type: number, nullable: true }
+                stopLossOrderPrice: { type: number, nullable: true }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/order/amend:
+    post:
+      tags: [Spot]
+      summary: 现货改单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNo]
+              properties:
+                orderNo: { type: string }
+                price: { type: number, nullable: true }
+                quantity: { type: number }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/order/cancel:
+    post:
+      tags: [Spot]
+      summary: 现货撤单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderNo]
+              properties:
+                orderNo: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/order:
+    post:
+      tags: [Spot]
+      summary: 现货下单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, type, quantity]
+              properties:
+                symbol: { type: string, example: BTC-USDT }
+                side: { type: string, enum: [buy, sell] }
+                type: { type: string, enum: [limit, market] }
+                timeInForce: { type: string, enum: [gtc, post_only, ioc, fok], default: gtc }
+                price:
+                  type: number
+                  nullable: true
+                  description: 限价单必填
+                quantity: { type: number, example: 0.01 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/orderbook:
+    get:
+      tags: [Spot]
+      summary: 现货盘口
+      security: []
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/orders/history:
+    get:
+      tags: [Spot]
+      summary: 现货历史委托
+      parameters:
+        - name: symbol
+          in: query
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/orders/open:
+    get:
+      tags: [Spot]
+      summary: 现货当前委托
+      parameters:
+        - name: symbol
+          in: query
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/symbols:
+    get:
+      tags: [Spot]
+      summary: 现货交易对列表
+      security: []
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/spot/trades:
+    get:
+      tags: [Spot]
+      summary: 现货成交记录
+      parameters:
+        - name: symbol
+          in: query
+          description: 交易对，如 BTC-USDT
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 50 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/support/tickets/{ticketNo}:
+    get:
+      tags: [Support]
+      summary: 工单详情
+      parameters:
+        - { name: ticketNo, in: path, required: true, schema: { type: string } }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/support/tickets:
+    get:
+      tags: [Support]
+      summary: 我的工单列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+    post:
+      tags: [Support]
+      summary: 创建工单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject, body]
+              properties:
+                category: { type: string }
+                subject: { type: string }
+                body: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/chains:
+    get:
+      tags: [Wallet]
+      summary: 支持链列表
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/deposit-address:
+    get:
+      tags: [Wallet]
+      summary: 充币地址
+      parameters:
+        - name: currency
+          in: query
+          required: true
+          schema: { type: string }
+        - name: chain
+          in: query
+          required: true
+          schema: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/deposits:
+    get:
+      tags: [Wallet]
+      summary: 充币记录
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/transfer:
+    post:
+      tags: [Wallet]
+      summary: 资金划转
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, amount, fromAccount, toAccount]
+              properties:
+                currency: { type: string, example: USDT }
+                amount: { type: number }
+                fromAccount: { type: string, enum: [funding, trading, futures, earn, margin] }
+                toAccount: { type: string, enum: [funding, trading, futures, earn, margin] }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/transfers:
+    get:
+      tags: [Wallet]
+      summary: 划转记录
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/withdraw:
+    post:
+      tags: [Wallet]
+      summary: 提币
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currency, chain, amount, address]
+              properties:
+                currency: { type: string, example: USDT }
+                chain: { type: string, example: TRC20 }
+                amount: { type: number }
+                address: { type: string }
+                memo: { type: string }
+      responses: { "200": { $ref: '#/components/responses/Envelope' } }
+  /api/v1/wallet/withdrawals:
+    get:
+      tags: [Wallet]
+      summary: 提币记录
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 20 }
       responses: { "200": { $ref: '#/components/responses/Envelope' } }

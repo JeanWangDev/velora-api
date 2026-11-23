@@ -1,6 +1,6 @@
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { config } from "@/config";
-import { UnauthorizedError } from "@/errors/app-error";
+import { BadRequestError, UnauthorizedError } from "@/errors/app-error";
 import type { AuthUser, JwtAccessPayload } from "@/types/auth";
 
 const ACCESS_TOKEN_ALGORITHM = "HS256";
@@ -196,5 +196,62 @@ export function verifyTotpChallenge(token: string): number {
       throw new UnauthorizedError("验证已过期，请重新登录");
     }
     throw new UnauthorizedError("验证已失效，请重新登录");
+  }
+}
+
+/** 注册 / 重置密码：邮箱验证码通过后签发，设密码时不再依赖原验证码是否过期 */
+const EMAIL_PROOF_EXPIRES_IN = "15m";
+
+export type EmailProofPurpose = "register" | "reset_password";
+
+export function signEmailProof(email: string, purpose: EmailProofPurpose): string {
+  if (!config.jwtSecret) {
+    throw new UnauthorizedError("服务端鉴权未配置");
+  }
+
+  return jwt.sign(
+    { typ: "email_proof", purpose, email },
+    config.jwtSecret,
+    {
+      algorithm: ACCESS_TOKEN_ALGORITHM,
+      expiresIn: EMAIL_PROOF_EXPIRES_IN,
+    } as SignOptions,
+  );
+}
+
+export function verifyEmailProof(
+  token: string,
+  expectedPurpose: EmailProofPurpose,
+  expectedEmail: string,
+): void {
+  if (!config.jwtSecret) {
+    throw new UnauthorizedError("服务端鉴权未配置");
+  }
+
+  try {
+    const payload = jwt.verify(token, config.jwtSecret, {
+      algorithms: [ACCESS_TOKEN_ALGORITHM],
+    });
+
+    if (typeof payload === "string" || !payload) {
+      throw new BadRequestError("邮箱验证已失效，请重新获取验证码");
+    }
+
+    if (payload.typ !== "email_proof") {
+      throw new BadRequestError("邮箱验证已失效，请重新获取验证码");
+    }
+
+    const purpose = typeof payload.purpose === "string" ? payload.purpose : "";
+    const email = typeof payload.email === "string" ? payload.email : "";
+
+    if (purpose !== expectedPurpose || email !== expectedEmail.toLowerCase()) {
+      throw new BadRequestError("邮箱验证已失效，请重新获取验证码");
+    }
+  } catch (error) {
+    if (error instanceof BadRequestError) throw error;
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new BadRequestError("邮箱验证已过期，请返回上一步重新验证");
+    }
+    throw new BadRequestError("邮箱验证已失效，请重新获取验证码");
   }
 }

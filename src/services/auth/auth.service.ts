@@ -11,7 +11,7 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/utils/password";
-import { signAccessToken, signLoginChallenge, signTotpChallenge, verifyLoginChallenge, verifyTotpChallenge } from "@/utils/jwt";
+import { signAccessToken, signEmailProof, signLoginChallenge, signTotpChallenge, verifyEmailProof, verifyLoginChallenge, verifyTotpChallenge } from "@/utils/jwt";
 import { SecurityService } from "@/services/auth/security.service";
 import { LoginSessionService } from "@/services/auth/login-session.service";
 import type { LoginMeta } from "@/types/auth";
@@ -111,17 +111,31 @@ export class AuthService {
   static async verifyEmailCode(body: VerifyEmailCodeBody) {
     assertDbReady();
     await EmailVerificationService.verifyOnly(body.email, body.purpose, body.code);
-    return { valid: true };
+
+    const bypassed = config.authBypassEmailCode;
+    // 注册 / 重置：签发短期凭证，设密码步骤不再二次校验邮箱验证码（避免中途过期）
+    if (body.purpose === EMAIL_PURPOSE_REGISTER || body.purpose === EMAIL_PURPOSE_RESET_PASSWORD) {
+      const proofToken = signEmailProof(body.email, body.purpose);
+      return { valid: true as const, bypassed, proofToken };
+    }
+
+    return { valid: true as const, bypassed };
   }
 
   static async register(body: RegisterBody) {
     assertDbReady();
 
-    await EmailVerificationService.verifyAndConsume(
-      body.email,
-      EMAIL_PURPOSE_REGISTER,
-      body.code,
-    );
+    if (body.proofToken) {
+      verifyEmailProof(body.proofToken, EMAIL_PURPOSE_REGISTER, body.email);
+    } else if (body.code) {
+      await EmailVerificationService.verifyAndConsume(
+        body.email,
+        EMAIL_PURPOSE_REGISTER,
+        body.code,
+      );
+    } else {
+      throw new BadRequestError("请先完成邮箱验证");
+    }
 
     const role = await Role.findOne({
       where: { roleKey: DEFAULT_REGISTER_ROLE_KEY, status: 1 },
@@ -300,6 +314,7 @@ export class AuthService {
     return {
       challengeToken,
       maskedEmail: maskEmail(body.email),
+      bypassed: Boolean(codeResult.bypassed),
       message: codeResult.message,
     };
   }
@@ -369,14 +384,20 @@ export class AuthService {
 
     const user = await User.findOne({ where: { email: body.email, status: 1 } });
     if (!user) {
-      throw new BadRequestError("验证码错误或已过期");
+      throw new BadRequestError("该账号不存在，请先注册");
     }
 
-    await EmailVerificationService.verifyAndConsume(
-      body.email,
-      EMAIL_PURPOSE_RESET_PASSWORD,
-      body.code,
-    );
+    if (body.proofToken) {
+      verifyEmailProof(body.proofToken, EMAIL_PURPOSE_RESET_PASSWORD, body.email);
+    } else if (body.code) {
+      await EmailVerificationService.verifyAndConsume(
+        body.email,
+        EMAIL_PURPOSE_RESET_PASSWORD,
+        body.code,
+      );
+    } else {
+      throw new BadRequestError("请先完成邮箱验证");
+    }
 
     const lastHistory = await UserPasswordHistory.findOne({
       where: { userId: user.id },

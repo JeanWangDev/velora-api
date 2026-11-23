@@ -40,9 +40,15 @@ export const verifyEmailCodeBodySchema = z.object({
 export const registerBodySchema = z
   .object({
     email: emailSchema,
-    code: verificationCodeSchema,
+    /** 兼容旧客户端；优先使用 proofToken（验证码步骤签发） */
+    code: verificationCodeSchema.optional(),
+    proofToken: z.string().min(1).optional(),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "请再次输入密码"),
+  })
+  .refine((data) => Boolean(data.proofToken?.trim() || data.code?.trim()), {
+    message: "请先完成邮箱验证",
+    path: ["code"],
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "两次输入的密码不一致",
@@ -76,9 +82,14 @@ export const forgotPasswordBodySchema = z.object({
 export const resetPasswordBodySchema = z
   .object({
     email: emailSchema,
-    code: verificationCodeSchema,
+    code: verificationCodeSchema.optional(),
+    proofToken: z.string().min(1).optional(),
     password: passwordSchema,
     confirmPassword: z.string().min(1, "请再次输入密码"),
+  })
+  .refine((data) => Boolean(data.proofToken?.trim() || data.code?.trim()), {
+    message: "请先完成邮箱验证",
+    path: ["code"],
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "两次输入的密码不一致",
